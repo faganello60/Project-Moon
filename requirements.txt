@@ -1,0 +1,11 @@
+fastapi==0.128.8
+uvicorn==0.39.0
+pydantic==2.12.5
+lmfit==1.3.4
+numpy==2.0.2
+matplotlib==3.9.4
+scipy==1.13.1
+
+# Optional dependencies that might be needed by some functions
+jinja2==3.1.6
+requests==2.32.5
