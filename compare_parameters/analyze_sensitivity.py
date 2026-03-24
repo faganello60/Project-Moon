@@ -4,15 +4,25 @@ from gyro import gyroPython as gyro
 import io
 import base64
 import json
+from concurrent.futures import ProcessPoolExecutor
 
-def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectron, bmag, asize):
-
+def _gyro_worker(task):
+    """
+    Worker function to execute gyro.gyro in parallel processes.
+    Sets the global input parameters in the worker process.
+    """
+    bins, current_args, view_angle, height, j1, j2, etr, plasma_np = task
+    
     gyro.input1.viewangle = view_angle
     gyro.input2.height = height
     gyro.input3.j1 = j1
     gyro.input4.j2 = j2
     gyro.input5.etr = etr
     gyro.input6.np = plasma_np
+    
+    return gyro.gyro(bins, *current_args)
+
+def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectron, bmag, asize):
 
     nf = 200
     fmin = 1.0e9
@@ -22,33 +32,35 @@ def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectro
     # Variables to configure the chart
     prefix = ""
     parameters = []
-    flux_results = []
+    tasks = []
     
     if len(delta) > 1:
         prefix = "delta"
         for current_delta in delta:
             parameters.append(current_delta)
-            flux = gyro.gyro(bins, current_delta, nelectron[0], bmag[0], asize[0])
-            flux_results.append(flux)
+            tasks.append((bins, [current_delta, nelectron[0], bmag[0], asize[0]], view_angle, height, j1, j2, etr, plasma_np))
     elif len(nelectron) > 1:
         prefix = "nelectron"
         for current_nelectron in nelectron:
             parameters.append(current_nelectron)
-            flux = gyro.gyro(bins, delta[0], current_nelectron, bmag[0], asize[0])
-            flux_results.append(flux)
+            tasks.append((bins, [delta[0], current_nelectron, bmag[0], asize[0]], view_angle, height, j1, j2, etr, plasma_np))
     elif len(bmag) > 1:
         prefix = "bmag"
         for current_bmag in bmag:
             parameters.append(current_bmag)
-            flux = gyro.gyro(bins, delta[0], nelectron[0], current_bmag, asize[0])
-            flux_results.append(flux)
+            tasks.append((bins, [delta[0], nelectron[0], current_bmag, asize[0]], view_angle, height, j1, j2, etr, plasma_np))
     elif len(asize) > 1:
         prefix = "asize"
         for current_asize in asize:
             parameters.append(current_asize)
-            flux = gyro.gyro(bins, delta[0], nelectron[0], bmag[0], current_asize)
-            flux_results.append(flux)
+            tasks.append((bins, [delta[0], nelectron[0], bmag[0], current_asize], view_angle, height, j1, j2, etr, plasma_np))
 
+    # Parallel execution
+    if tasks:
+        with ProcessPoolExecutor() as executor:
+            flux_results = list(executor.map(_gyro_worker, tasks))
+    else:
+        flux_results = []
 
     spectrum = plt.figure(figsize=(8, 6))
     spc = spectrum.add_subplot()
