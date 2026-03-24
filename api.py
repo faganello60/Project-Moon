@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from gsync.router import router as gsync_router
-from compare_parameters.router import router as sensitivity_router
+from parameters_study.router import router as sensitivity_router
 
 app = FastAPI()
 
