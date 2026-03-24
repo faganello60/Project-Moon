@@ -1,0 +1,31 @@
+meta {
+  name: parameter_impact
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://0.0.0.0:8000/parameterImpact
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "viewAngle": 60,
+    "height": 1000000000,
+    "j1": 1,
+    "j2": 120,
+    "etr": 2.5,
+    "np": 1000000000,
+    "delta": [2.5e0],
+    "nelectron": [1.0e33],
+    "bmag": [300.0e0,150.0e0,450.0e0],
+    "asize": [20.0e0]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
