@@ -1,7 +1,7 @@
 from lmfit import Parameters, Model
 import numpy as np
 import matplotlib.pyplot as plt
-from . import gyro
+from gyro import gyro
 
 import io
 import base64

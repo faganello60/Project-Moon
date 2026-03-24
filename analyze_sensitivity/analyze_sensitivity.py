@@ -1,4 +1,3 @@
-from lmfit import Parameters, Model
 import numpy as np
 import matplotlib.pyplot as plt
 from gyro import gyroPython as gyro  
@@ -7,10 +6,7 @@ import io
 import base64
 import json
 
-def run_gsync(freq, sfu, view_angle, height, j1, j2, etr, plasma_np, params, prefix):
-    xdata = freq
-    ydata = sfu
-
+def test_parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectron, bmag, asize):
     # Fixed parameters
     #
     #     viewangle     viewing angle (angle between B and the line of sight) [deg]
@@ -46,67 +42,46 @@ def run_gsync(freq, sfu, view_angle, height, j1, j2, etr, plasma_np, params, pre
     gyro.input5.etr = etr
     gyro.input6.np = plasma_np
 
-    # # Build the model for data-fitting with LMFIT
-    #
-    # Variable parameters
-    #
-    #     delta        spectral index of electron distribution
-    #     nelectron    total number of electrons
-    #     bmag         magnetic field [gauss] (assumed uniform)
-    #     asize        source size [arc sec]
-    #
-    #
-
-    def func(freq, delta, nelectron, bmag, asize):
-        return gyro.gyro(freq, delta, nelectron, bmag, asize)
-
-    gmodel = Model(func)
-
-
-    #
-    # Set variable parameters
-    #
-    # value: initial guess (must be in the range [min,max])
-    # vary: fixed (False) or variable (True)
-    # min: minimum value
-    # max: maximum value
-    #
-
-    params = params
-
-    # Fitting
-
-    result = gmodel.fit(ydata, params, freq=xdata)
-    # result.best_fit # unused expression
-
-    # Plot data and model spectrum with the best-fit parameters
-    #
-    # nf logarithmic bins of frequency [Hz] in the range [fmin, fmax]
-    #
-
     nf = 200
     fmin = 1.0e9
     fmax = 1e12
     bins = np.logspace(np.log10(fmin), np.log10(fmax), nf)
+    
+    prefix = ""
+    variable_parameter = []
+    
+    if len(delta) > 1:
+        prefix = "Delta"
+    elif len(nelectron) > 1:
+        prefix = "nelectron"
+    elif len(bmag) > 1:
+        prefix = "bmag"
+    elif len(asize) > 1:
+        prefix = "asize"
 
-    # Set the best-fit parameters
 
-    delta_bf = result.params['delta'].value
-    nelectron_bf = result.params['nelectron'].value
-    bmag_bf = result.params['bmag'].value
-    asize_bf = result.params['asize'].value
+    delta_bf = delta
+    nelectron_bf = nelectron
+    bmag_bf = bmag[0]
+    asize_bf = asize
 
-    # Plot
+    results = []
 
     flux = gyro.gyro(bins, delta_bf, nelectron_bf, bmag_bf, asize_bf)
+    flux2 = gyro.gyro(bins, delta_bf, nelectron_bf, bmag[1], asize_bf)
+    flux3 = gyro.gyro(bins, delta_bf, nelectron_bf, bmag[2], asize_bf)
+    flux4 = gyro.gyro(bins, delta_bf, nelectron_bf, bmag[3], asize_bf)
 
     spectrum = plt.figure(figsize=(8, 6))
     spc = spectrum.add_subplot()
     spc.tick_params(axis='x', labelsize=14)
     spc.tick_params(axis='y', labelsize=14)
 
-    plt.plot(xdata, ydata, 's', markersize=8, label=f'SOL-{prefix}')
     plt.plot(bins[:], flux[:], 'r-', label='FITTING')
+    plt.plot(bins[:], flux2[:], 'b-', label='FITTING-2')
+    plt.plot(bins[:], flux3[:], 'g-', label='FITTING-3')
+    plt.plot(bins[:], flux4[:], 'm-', label='FITTING-3')
+
     plt.xlabel('Frequency (Hz)', fontsize=14)
     plt.ylabel('Flux Density (SFU)', fontsize=14)
     plt.xlim(1.0e9, 1.0e11)
@@ -116,20 +91,35 @@ def run_gsync(freq, sfu, view_angle, height, j1, j2, etr, plasma_np, params, pre
     plt.legend(loc='best', fontsize=16, frameon=False)
     
 
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    img_base64 = base64.b64encode(buf.read()).decode('utf-8')
-    plt.close()
+    # buf = io.BytesIO()
+    # plt.savefig(buf, format='png')
+    # buf.seek(0)
+    # img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    # plt.close()
 
-    formatted_bins = ["{:.15E}".format(float(b)) for b in bins]
-    formatted_flux = ["{:.15E}".format(float(f)) for f in flux]
+    # formatted_bins = ["{:.15E}".format(float(b)) for b in bins]
+    # formatted_flux = ["{:.15E}".format(float(f)) for f in flux]
 
-    result = {
-        'image': img_base64,
-        'bins': formatted_bins,
-        'flux': formatted_flux,
-        'fit_report': result.fit_report(),
-        'best_values': result.best_values
-    }
-    return json.dumps(result)
+    # result = {
+    #     'image': img_base64,
+    #     'bins': formatted_bins,
+    #     'flux': formatted_flux,
+    #     'fit_report': result.fit_report(),
+    #     'best_values': result.best_values
+    # }
+    # return json.dumps(result)
+    plt.show()
+
+if __name__ == "__main__":
+    test_parameter_impact(
+        view_angle=60.0e0,
+        height=1.0e9,
+        j1=1,
+        j2=120,
+        etr=2.5e0,
+        plasma_np=1.0e9,
+        delta=2.5e0,
+        nelectron=1.0e33,
+        bmag=[300.0e0/2, 300.0e0, 300.0e0*1.5, 300.0e0*2],
+        asize = 20.0e0
+    )
