@@ -4,7 +4,23 @@ A web-based gyrosynchrotron emission spectrum simulator for solar flares.
 
 ## 🚀 How to Run
 
-To run this project on a new computer, follow these steps:
+### Quick Start with Docker (Recommended)
+If you have Docker installed, you can run the entire application with a single command:
+
+```bash
+docker-compose up --build
+```
+
+- The **Backend API** will be available at `http://localhost:8000`.
+- The **Frontend** will be available at `http://localhost:8080`.
+
+To stop the application, press `Ctrl+C` or run:
+```bash
+docker-compose down
+```
+
+### Manual Setup
+To run this project manually on a new computer, follow these steps:
 
 ### 1. Prerequisites
 Ensure you have **Python 3.8 or newer** installed on your system.
