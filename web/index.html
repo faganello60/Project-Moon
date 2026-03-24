@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Moon | Gyrosynchrotron Simulator</title>
+    <title>Project Moon | Home</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="stars"></div>
@@ -14,197 +13,31 @@
     
     <div class="container">
         <header>
-            <h1>PROJECT MOON - Gsync</h1>
-            <p class="subtitle">Application to model the gyrosynchrotron emission spectrum from solar flares</p>
+            <h1>PROJECT MOON</h1>
+            <p class="subtitle">Solar Gyrosynchrotron Emission Analysis Suite</p>
         </header>
 
-        <main>
-            <section class="control-panel">
-                <div class="panel-header">
-                    <h2>Observation</h2>
-                </div>
+        <main class="home-selection">
+            <div class="selection-grid">
+                <a href="parameterStudy/parameterStudy.html" class="selection-card">
+                    <div class="card-icon">📊</div>
+                    <h2>Parameter Study</h2>
+                    <p>Analyze sensitivity of gyrosynchrotron emission to parameter variations</p>
+                    <span class="btn-launch">LAUNCH</span>
+                </a>
 
-                <form id="gsyncForm">
-                    <div class="button-group secondary">
-                        <button type="button" id="importJsonBtn" class="json-btn">IMPORT SETTINGS (JSON)</button>
-                        <button type="button" id="exportJsonBtn" class="json-btn">EXPORT SETTINGS (JSON)</button>
-                        <input type="file" id="jsonFile" accept=".json" class="hidden">
-                    </div>
-
-                    <!-- Data Input Section (Top Priority) -->
-                    <div class="data-section">
-                        <div class="section-header">
-                            <h3>Simulation Data</h3>
-                            <div class="input-mode-switch">
-                                <span class="mode-label">MANUAL</span>
-                                <label class="switch">
-                                    <input type="checkbox" id="importMode">
-                                    <span class="slider round"></span>
-                                </label>
-                                <span class="mode-label">IMPORT .DAT</span>
-                            </div>
-                        </div>
-
-                        <div id="importContainer" class="hidden">
-                            <div class="input-group full-width">
-                                <label for="datFile" class="upload-label">
-                                    <span class="icon">🚀</span> Upload Data File (.dat)
-                                </label>
-                                <input type="file" id="datFile" accept=".dat" class="hidden">
-                            </div>
-                        </div>
-
-                        <div class="data-grid">
-                            <div class="input-group full-width">
-                                <label for="xData">Frequencies (Hz)</label>
-                                <textarea id="xData" rows="2" placeholder="e.g. 1e9, 2e9, 5e9"></textarea>
-                            </div>
-                            <div class="input-group full-width">
-                                <label for="yData">Flux Density (SFU)</label>
-                                <textarea id="yData" rows="2" placeholder="e.g. 10, 50, 150"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Environment Section (Middle) -->
-                    <div class="params-section">
-                        <div class="section-header">
-                            <h3>Environment Settings</h3>
-                        </div>
-                        <div class="grid-layout">
-                            <div class="input-group">
-                                <label for="prefix">Prefix</label>
-                                <input type="text" id="prefix" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="viewAngle">View Angle (deg)</label>
-                                <input type="number" id="viewAngle" step="any" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="height">Source Height [cm]</label>
-                                <input type="number" id="height" step="any" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="j1">J1</label>
-                                <label class ="disclaimer" for="j1">index to define Emin [MeV]</label>
-                                <input type="number" id="j1" step="any" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="j2">J2</label>
-                                <label class ="disclaimer" for="j2">index to define Emax [MeV]</label>
-
-                                <input type="number" id="j2" step="any" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="etr">ETR</label>
-                                <label class ="disclaimer" for="etr">gyro/sync transition energy [MeV]</label>
-
-                                <input type="number" id="etr" step="any" value="" required>
-                            </div>
-                            <div class="input-group">
-                                <label for="np">Plasma density [cm^-3]</label>
-                                <input type="number" id="np" step="any" value="" required>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Optimization Section (Bottom) -->
-                    <div class="params-section">
-                        <div class="section-header">
-                            <h3>Model Optimization</h3>
-                        </div>
-                        <div class="params-grid">
-                            <div class="param-row">
-                                <span class="param-name">Delta</span>
-                                <input type="number" id="delta_val" step="any" placeholder="Value">
-                                <input type="number" id="delta_min" step="any" placeholder="Min">
-                                <input type="number" id="delta_max" step="any" placeholder="Max">
-                                <div class="input-mode-switch">
-                                    <span class="mode-label">FIXED</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="delta_vary" checked>
-                                        <span class="slider round"></span>
-                                    </label>
-                                    <span class="mode-label">VARY</span>
-                                </div>
-                            </div>
-                            <div class="param-row">
-                                <span class="param-name">nelectron</span>
-                                <input type="number" id="nelectron_val" step="any" placeholder="Value">
-                                <input type="number" id="nelectron_min" step="any" placeholder="Min">
-                                <input type="number" id="nelectron_max" step="any" placeholder="Max">
-                                <div class="input-mode-switch">
-                                    <span class="mode-label">FIXED</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="nelectron_vary" checked>
-                                        <span class="slider round"></span>
-                                    </label>
-                                    <span class="mode-label">VARY</span>
-                                </div>
-                            </div>
-                            <div class="param-row">
-                                <span class="param-name">bmag</span>
-                                <input type="number" id="bmag_val" step="any" placeholder="Value">
-                                <input type="number" id="bmag_min" step="any" placeholder="Min">
-                                <input type="number" id="bmag_max" step="any" placeholder="Max">
-                                <div class="input-mode-switch">
-                                    <span class="mode-label">FIXED</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="bmag_vary" checked>
-                                        <span class="slider round"></span>
-                                    </label>
-                                    <span class="mode-label">VARY</span>
-                                </div>
-                            </div>
-                            <div class="param-row">
-                                <span class="param-name">asize</span>
-                                <input type="number" id="asize_val" step="any" placeholder="Value">
-                                <input type="number" id="asize_min" step="any" placeholder="Min">
-                                <input type="number" id="asize_max" step="any" placeholder="Max">
-                                <div class="input-mode-switch">
-                                    <span class="mode-label">FIXED</span>
-                                    <label class="switch">
-                                        <input type="checkbox" id="asize_vary" checked>
-                                        <span class="slider round"></span>
-                                    </label>
-                                    <span class="mode-label">VARY</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="button-group">
-                        <button type="submit" id="runBtn" data-endpoint="/gsync">INITIALIZE SIMULATION</button>
-                        <button type="submit" id="runBtnPython" class="beta-btn" data-endpoint="/python/gsync">INITIALIZE SIMULATION (PYTHON) BETA</button>
-                    </div>
-                </form>
-            </section>
-
-            <section class="results-panel hidden" id="resultsPanel">
-                <div class="panel-header">
-                    <h2>Simulation Results</h2>
-                    <button id="exportResultsBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">EXPORT RESULTS (.ZIP)</button>
-                </div>
-                <div class="results-content">
-                    <div class="chart-container">
-                        <img id="resultImage" src="" alt="Simulation Plot">
-                    </div>
-                    <div class="details-container">
-                        <h3>Fit Report</h3>
-                        <pre id="fitReport"></pre>
-                        <h3>Best Values</h3>
-                        <div id="bestValues" class="best-values-grid"></div>
-                    </div>
-                </div>
-            </section>
+                <a href="gsync/gsync.html" class="selection-card">
+                    <div class="card-icon">🔭</div>
+                    <h2>Spectrum Adjustment</h2>
+                    <p>Model the gyrosynchrotron emission spectrum from solar flares with data fitting</p>
+                    <span class="btn-launch">LAUNCH</span>
+                </a>
+            </div>
         </main>
     </div>
 
-    <div id="loader" class="loader hidden">
-        <div class="moon"></div>
-        <p>Calculating Trajectory...</p>
+    <div class="footer">
+        <p>Project Moon &copy; 2026</p>
     </div>
-
-    <script src="script.js"></script>
 </body>
 </html>
