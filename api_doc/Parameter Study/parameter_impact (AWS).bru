@@ -1,0 +1,31 @@
+meta {
+  name: parameter_impact (AWS)
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://http://44.204.229.8:8000/parameterImpact
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "viewAngle": 60,
+    "height": 1000000000,
+    "j1": 1,
+    "j2": 120,
+    "etr": 2.5,
+    "np": 1000000000,
+    "delta": [],
+    "nelectron": [1.0e33],
+    "bmag": [300.0e0,150.0e0,450.0e0,650.0e0,950.0e0,250.0e0],
+    "asize": [20.0e0]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
