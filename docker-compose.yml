@@ -1,17 +1,18 @@
 version: '3.8'
 
 services:
-    backend:
-      build: .
-      expose:
-        - "8000"
-      restart: unless-stopped
-  
-    frontend:
-      build: ./web
-      ports:
-        - "8080:80"
-      depends_on:
-        - backend
-      restart: unless-stopped
-  
+  backend:
+    image: faganello60/project-moon-backend:1.1
+    build: .
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  frontend:
+    image: faganello60/project-moon-frontend:1.1
+    build: ./web
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
