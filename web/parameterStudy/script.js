@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 asize: getParamValues('asize')
             };
 
-            const apiUrl = 'http://localhost:8000/parameterImpact';
+            const apiUrl = '/api/parameterImpact';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',

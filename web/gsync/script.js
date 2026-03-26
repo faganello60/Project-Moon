@@ -268,11 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         min: parseFloat(document.getElementById('asize_min').value),
                         max: parseFloat(document.getElementById('asize_max').value),
                         vary: document.getElementById('asize_vary').checked
-                    }
-                }
             };
 
-            const apiUrl = `http://localhost:8000${currentEndpoint}`;
+            const apiUrl = `/api${currentEndpoint}`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
