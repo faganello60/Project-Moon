@@ -8,6 +8,8 @@ numpy==2.0.2
 matplotlib==3.9.4
 scipy==1.13.1
 numba==0.60.0
+astropy==6.1.1
+pandas==2.2.2
 
 # Optional dependencies that might be needed by some functions
 jinja2==3.1.6
