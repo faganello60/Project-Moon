@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import argparse
 import base64
 import importlib.util
-import json
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -60,7 +58,19 @@ def iso_time(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def window_dict(times: List[datetime], start_index: int, end_index: int) -> Dict[str, object]:
+def parse_time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def nearest_index(times: List[datetime], target: datetime) -> int:
+    time_axis = np.array([item.timestamp() for item in times], dtype=float)
+    return int(np.argmin(np.abs(time_axis - target.timestamp())))
+
+
+def window_from_indices(times: List[datetime], start_index: int, end_index: int) -> Dict[str, object]:
     start_index = max(0, start_index)
     end_index = min(len(times), end_index)
     if end_index <= start_index:
@@ -73,6 +83,16 @@ def window_dict(times: List[datetime], start_index: int, end_index: int) -> Dict
     }
 
 
+def window_from_strings(times: List[datetime], start_time: str, end_time: str) -> Dict[str, object]:
+    start_index = nearest_index(times, parse_time(start_time))
+    end_index = nearest_index(times, parse_time(end_time))
+    if end_index <= start_index:
+        end_index = start_index + 1
+    else:
+        end_index += 1
+    return window_from_indices(times, start_index, end_index)
+
+
 def load_norp_data(filename: str) -> Tuple[List[datetime], Dict[float, np.ndarray]]:
     times = list(norp_rd_time(filename))
     flux = {}
@@ -81,43 +101,28 @@ def load_norp_data(filename: str) -> Tuple[List[datetime], Dict[float, np.ndarra
     return times, flux
 
 
-def automatic_flare_windows(times: List[datetime], flux: Dict[float, np.ndarray]) -> Dict[str, Dict[str, object]]:
-    flare_reference = flux[9.4e9]
-    smooth_window = 11
-    kernel = np.ones(smooth_window, dtype=float) / float(smooth_window)
-    flare_smooth = np.convolve(flare_reference, kernel, mode="same")
+def automatic_preview_windows(times: List[datetime], flux: Dict[float, np.ndarray]) -> Dict[str, Dict[str, object]]:
+    reference = flux[9.4e9]
+    smooth = np.convolve(reference, np.ones(11, dtype=float) / 11.0, mode="same")
+    peak_index = int(np.argmax(smooth))
 
-    flare_peak_index = int(np.argmax(flare_smooth))
-    local_min_search_start = max(0, flare_peak_index - 3000)
-    local_min_search_end = max(local_min_search_start + 1, flare_peak_index - 600)
-    local_min_relative_index = int(np.argmin(flare_smooth[local_min_search_start:local_min_search_end]))
-    flare_start_index = local_min_search_start + local_min_relative_index
-
-    local_max_search_end = min(len(flare_smooth), flare_peak_index + 1800)
-    decay_reference = flare_smooth[flare_start_index]
-    flare_end_index = flare_peak_index + 1
-    for index in range(flare_peak_index + 1, local_max_search_end):
-        if flare_smooth[index] <= decay_reference:
-            flare_end_index = index
-            break
-    if flare_end_index <= flare_peak_index + 1:
-        flare_end_index = min(len(times), flare_peak_index + 900)
-
-    preflare_end_index = max(flare_start_index, 1)
+    preflare_search_start = max(0, peak_index - 3000)
+    preflare_search_end = max(preflare_search_start + 1, peak_index - 600)
+    preflare_end_index = preflare_search_start + int(np.argmin(smooth[preflare_search_start:preflare_search_end]))
     preflare_start_index = max(0, preflare_end_index - 2430)
-    peak_start_index = max(0, flare_peak_index - 43)
-    peak_end_index = min(len(times), flare_peak_index + 68)
+
+    peak_start_index = max(0, peak_index - 43)
+    peak_end_index = min(len(times), peak_index + 68)
     analysis_start_index = max(0, preflare_start_index - 1200)
-    analysis_end_index = min(len(times), flare_end_index + 1200)
-    postflare_start_index = min(len(times) - 1, flare_end_index)
+    analysis_end_index = min(len(times), peak_end_index + 1200)
+    postflare_start_index = peak_end_index
     postflare_end_index = min(len(times), postflare_start_index + 1200)
 
     return {
-        "analysis": window_dict(times, analysis_start_index, analysis_end_index),
-        "pre_flare": window_dict(times, preflare_start_index, preflare_end_index),
-        "flare": window_dict(times, flare_start_index, flare_end_index),
-        "peak": window_dict(times, peak_start_index, peak_end_index),
-        "post_flare": window_dict(times, postflare_start_index, postflare_end_index),
+        "analysis": window_from_indices(times, analysis_start_index, analysis_end_index),
+        "pre_flare": window_from_indices(times, preflare_start_index, preflare_end_index),
+        "peak": window_from_indices(times, peak_start_index, peak_end_index),
+        "post_flare": window_from_indices(times, postflare_start_index, postflare_end_index),
     }
 
 
@@ -137,7 +142,7 @@ def figure_to_base64(fig: plt.Figure) -> str:
     return base64.b64encode(buffer.getvalue()).decode("ascii")
 
 
-def build_lightcurves_base64(
+def build_background_removed_lightcurve(
     times: List[datetime],
     flux: Dict[float, np.ndarray],
     backgrounds: Dict[float, float],
@@ -155,7 +160,8 @@ def build_lightcurves_base64(
             linewidth=1,
             label=f"{frequency_hz/1e9:g} GHz",
         )
-    ax.set_title(f"NoRP {obs_day} - Lightcurves")
+
+    ax.set_title(f"NoRP {obs_day} - Background Removed")
     ax.set_xlabel("Time [UT]")
     ax.set_ylabel("Flux [SFU]")
     ax.legend(loc="best")
@@ -164,7 +170,7 @@ def build_lightcurves_base64(
     return figure_to_base64(fig)
 
 
-def build_spectrum_base64(frequencies_hz: List[float], flux_sfu: List[float], obs_day: str) -> str:
+def build_spectrum_plot(frequencies_hz: List[float], flux_sfu: List[float], obs_day: str) -> str:
     fig, ax = plt.subplots(figsize=(8, 6))
     ax.plot(frequencies_hz, flux_sfu, marker=".", linestyle="None", markersize=10)
     ax.set_title(f"NoRP {obs_day} - Spectrum")
@@ -178,59 +184,6 @@ def build_spectrum_base64(frequencies_hz: List[float], flux_sfu: List[float], ob
     return figure_to_base64(fig)
 
 
-def process_norp_file(filename: str) -> Dict[str, object]:
-    filename = str(Path(filename).resolve())
-    if not Path(filename).exists():
-        raise HTTPException(status_code=404, detail=f"Arquivo não encontrado: {filename}")
-
-    times, flux = load_norp_data(filename)
-    obs_day = norp_rd_obsDay(filename)
-    windows = automatic_flare_windows(times, flux)
-
-    backgrounds = {}
-    for frequency_hz in FREQUENCIES_HZ:
-        backgrounds[frequency_hz] = mean_in_window(flux[frequency_hz], windows["pre_flare"])
-
-    flare_flux = {}
-    for frequency_hz in FREQUENCIES_HZ:
-        flare_flux[frequency_hz] = mean_in_window(flux[frequency_hz], windows["peak"]) - backgrounds[frequency_hz]
-
-    spectrum_flux = []
-    for frequency_hz in FINAL_FREQUENCIES_HZ:
-        spectrum_flux.append(float(flare_flux[frequency_hz]))
-
-    dat_preview = []
-    for frequency_hz, value in zip(FINAL_FREQUENCIES_HZ, spectrum_flux):
-        dat_preview.append(f"{frequency_hz:.5E} {value:.5E}")
-
-    plots_base64 = {
-        "lightcurves_png_base64": build_lightcurves_base64(
-            times=times,
-            flux=flux,
-            backgrounds=backgrounds,
-            analysis_window=windows["analysis"],
-            obs_day=obs_day,
-        ),
-        "spectrum_png_base64": build_spectrum_base64(
-            frequencies_hz=FINAL_FREQUENCIES_HZ,
-            flux_sfu=spectrum_flux,
-            obs_day=obs_day,
-        ),
-    }
-
-    return {
-        "filename": filename,
-        "obs_day": obs_day,
-        "frequencies_hz": FINAL_FREQUENCIES_HZ,
-        "flux_sfu": spectrum_flux,
-        "backgrounds": {str(key): value for key, value in backgrounds.items()},
-        "flare_flux": {str(key): value for key, value in flare_flux.items()},
-        "windows": windows,
-        "dat_preview": dat_preview,
-        "plots_base64": plots_base64,
-    }
-
-
 async def save_upload(upload: UploadFile) -> str:
     suffix = ".fits.gz"
     if upload.filename and upload.filename.endswith(".fit"):
@@ -242,22 +195,76 @@ async def save_upload(upload: UploadFile) -> str:
         return temp_file.name
 
 
-def main() -> Dict[str, object]:
-    parser = argparse.ArgumentParser(description="Processa um arquivo NoRP localmente.")
-    parser.add_argument("--filename", required=True)
-    parser.add_argument("--text-output", action="store_true")
-    args = parser.parse_args()
-
-    payload = process_norp_file(args.filename)
-    if args.text_output:
-        print(f"Observation day: {payload['obs_day']}")
-        print("Spectrum (.dat format):")
-        for line in payload["dat_preview"]:
-            print(line)
-    else:
-        print(json.dumps(payload, ensure_ascii=False))
-    return payload
+def validate_upload_filename(filename: str) -> None:
+    if not (
+        filename.endswith(".fit")
+        or filename.endswith(".fits")
+        or filename.endswith(".fits.gz")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Para gerar curvas de luz e espectro, envie um arquivo .fit, .fits ou .fits.gz.",
+        )
 
 
-if __name__ == "__main__":
-    main()
+def preview_payload(filename: str) -> Dict[str, object]:
+    times, flux = load_norp_data(filename)
+    obs_day = norp_rd_obsDay(filename)
+    windows = automatic_preview_windows(times, flux)
+
+    backgrounds = {}
+    for frequency_hz in FREQUENCIES_HZ:
+        backgrounds[frequency_hz] = mean_in_window(flux[frequency_hz], windows["pre_flare"])
+
+    image_base64 = build_background_removed_lightcurve(
+        times=times,
+        flux=flux,
+        backgrounds=backgrounds,
+        analysis_window=windows["analysis"],
+        obs_day=obs_day,
+    )
+
+    return {
+        "obs_day": obs_day,
+        "suggested_windows": windows,
+        "backgrounds": {str(key): value for key, value in backgrounds.items()},
+        "background_removed_lightcurve_png_base64": image_base64,
+    }
+
+
+def final_payload(filename: str, pre_flare_start: str, pre_flare_end: str, peak_start: str, peak_end: str) -> Dict[str, object]:
+    times, flux = load_norp_data(filename)
+    obs_day = norp_rd_obsDay(filename)
+
+    pre_flare_window = window_from_strings(times, pre_flare_start, pre_flare_end)
+    peak_window = window_from_strings(times, peak_start, peak_end)
+
+    backgrounds = {}
+    for frequency_hz in FREQUENCIES_HZ:
+        backgrounds[frequency_hz] = mean_in_window(flux[frequency_hz], pre_flare_window)
+
+    flare_flux = {}
+    for frequency_hz in FREQUENCIES_HZ:
+        flare_flux[frequency_hz] = mean_in_window(flux[frequency_hz], peak_window) - backgrounds[frequency_hz]
+
+    final_flux = []
+    for frequency_hz in FINAL_FREQUENCIES_HZ:
+        final_flux.append(float(flare_flux[frequency_hz]))
+
+    dat_preview = []
+    for frequency_hz, value in zip(FINAL_FREQUENCIES_HZ, final_flux):
+        dat_preview.append(f"{frequency_hz:.5E} {value:.5E}")
+
+    spectrum_base64 = build_spectrum_plot(FINAL_FREQUENCIES_HZ, final_flux, obs_day)
+
+    return {
+        "obs_day": obs_day,
+        "pre_flare_window": pre_flare_window,
+        "peak_window": peak_window,
+        "backgrounds": {str(key): value for key, value in backgrounds.items()},
+        "flare_flux": {str(key): value for key, value in flare_flux.items()},
+        "frequencies_hz": FINAL_FREQUENCIES_HZ,
+        "flux_sfu": final_flux,
+        "dat_preview": dat_preview,
+        "spectrum_png_base64": spectrum_base64,
+    }
