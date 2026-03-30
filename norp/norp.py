@@ -241,23 +241,3 @@ async def save_upload(upload: UploadFile) -> str:
         temp_file.write(await upload.read())
         return temp_file.name
 
-
-def main() -> Dict[str, object]:
-    parser = argparse.ArgumentParser(description="Processa um arquivo NoRP localmente.")
-    parser.add_argument("--filename", required=True)
-    parser.add_argument("--text-output", action="store_true")
-    args = parser.parse_args()
-
-    payload = process_norp_file(args.filename)
-    if args.text_output:
-        print(f"Observation day: {payload['obs_day']}")
-        print("Spectrum (.dat format):")
-        for line in payload["dat_preview"]:
-            print(line)
-    else:
-        print(json.dumps(payload, ensure_ascii=False))
-    return payload
-
-
-if __name__ == "__main__":
-    main()
