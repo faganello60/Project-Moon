@@ -232,6 +232,10 @@ input:checked + .slider.round:before {
     gap: 1rem;
 }
 
+.button-group.secondary .json-btn {
+    flex: 0 1 280px;
+}
+
 .json-btn {
     flex: 1;
     padding: 0.8rem;
@@ -280,10 +284,29 @@ input:checked + .slider.round:before {
     font-family: 'Orbitron', sans-serif;
 }
 
+.section-note {
+    margin: -0.25rem 0 1rem;
+    color: rgba(224, 224, 224, 0.8);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
 .params-grid {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.params-grid-header {
+    display: grid;
+    grid-template-columns: 100px 1fr 1fr 1fr 160px;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--glow-blue);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.08rem;
+    text-transform: uppercase;
 }
 
 .param-row {
@@ -293,9 +316,25 @@ input:checked + .slider.round:before {
     align-items: center;
 }
 
+.param-row.is-fixed input[id$="_min"],
+.param-row.is-fixed input[id$="_max"] {
+    display: none;
+}
+
+.param-row.is-fixed {
+    grid-template-columns: 100px 1fr 160px;
+}
+
 .param-name {
     font-weight: 700;
     color: var(--moon-light);
+}
+
+.results-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 #runBtn, #runBtnPython {
@@ -426,8 +465,26 @@ input:checked + .slider.round:before {
 }
 
 @media (max-width: 768px) {
+    .params-grid-header {
+        display: none;
+    }
+
     .param-row {
         grid-template-columns: 1fr 1fr;
     }
+
+    .param-row.is-fixed {
+        grid-template-columns: 1fr 1fr;
+    }
+
     .param-name { grid-column: span 2; }
+
+    .results-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .results-actions .json-btn {
+        flex: 1;
+    }
 }

@@ -27,14 +27,14 @@
                 <form id="gsyncForm">
                     <div class="button-group secondary">
                         <button type="button" id="importJsonBtn" class="json-btn">IMPORT SETTINGS (JSON)</button>
-                        <button type="button" id="exportJsonBtn" class="json-btn">EXPORT SETTINGS (JSON)</button>
+                        <button type="button" id="fillExampleBtn" class="json-btn">FILL WITH AN EXAMPLE</button>
                         <input type="file" id="jsonFile" accept=".json" class="hidden">
                     </div>
 
                     <!-- Data Input Section (Top Priority) -->
                     <div class="data-section">
                         <div class="section-header">
-                            <h3>Simulation Data</h3>
+                            <h3>Data</h3>
                             <div class="input-mode-switch">
                                 <span class="mode-label">MANUAL</span>
                                 <label class="switch">
@@ -73,7 +73,7 @@
                         </div>
                         <div class="grid-layout">
                             <div class="input-group">
-                                <label for="prefix">Prefix</label>
+                                <label for="prefix">Title</label>
                                 <input type="text" id="prefix" value="" required>
                             </div>
                             <div class="input-group">
@@ -113,10 +113,18 @@
                         <div class="section-header">
                             <h3>Model Optimization</h3>
                         </div>
+                        <p class="section-note">Define the initial guess for each parameter. When a parameter is fixed, its range is hidden and the API receives min = 0 and max = 0.</p>
+                        <div class="params-grid-header" aria-hidden="true">
+                            <span>Parameter</span>
+                            <span>Initial Guess</span>
+                            <span>Min</span>
+                            <span>Max</span>
+                            <span>Mode</span>
+                        </div>
                         <div class="params-grid">
-                            <div class="param-row">
+                            <div class="param-row" data-param="delta">
                                 <span class="param-name">Delta</span>
-                                <input type="number" id="delta_val" step="any" placeholder="Value">
+                                <input type="number" id="delta_val" step="any" placeholder="Initial Guess">
                                 <input type="number" id="delta_min" step="any" placeholder="Min">
                                 <input type="number" id="delta_max" step="any" placeholder="Max">
                                 <div class="input-mode-switch">
@@ -128,9 +136,9 @@
                                     <span class="mode-label">VARY</span>
                                 </div>
                             </div>
-                            <div class="param-row">
+                            <div class="param-row" data-param="nelectron">
                                 <span class="param-name">nelectron</span>
-                                <input type="number" id="nelectron_val" step="any" placeholder="Value">
+                                <input type="number" id="nelectron_val" step="any" placeholder="Initial Guess">
                                 <input type="number" id="nelectron_min" step="any" placeholder="Min">
                                 <input type="number" id="nelectron_max" step="any" placeholder="Max">
                                 <div class="input-mode-switch">
@@ -142,9 +150,9 @@
                                     <span class="mode-label">VARY</span>
                                 </div>
                             </div>
-                            <div class="param-row">
+                            <div class="param-row" data-param="bmag">
                                 <span class="param-name">bmag</span>
-                                <input type="number" id="bmag_val" step="any" placeholder="Value">
+                                <input type="number" id="bmag_val" step="any" placeholder="Initial Guess">
                                 <input type="number" id="bmag_min" step="any" placeholder="Min">
                                 <input type="number" id="bmag_max" step="any" placeholder="Max">
                                 <div class="input-mode-switch">
@@ -156,9 +164,9 @@
                                     <span class="mode-label">VARY</span>
                                 </div>
                             </div>
-                            <div class="param-row">
+                            <div class="param-row" data-param="asize">
                                 <span class="param-name">asize</span>
-                                <input type="number" id="asize_val" step="any" placeholder="Value">
+                                <input type="number" id="asize_val" step="any" placeholder="Initial Guess">
                                 <input type="number" id="asize_min" step="any" placeholder="Min">
                                 <input type="number" id="asize_max" step="any" placeholder="Max">
                                 <div class="input-mode-switch">
@@ -183,7 +191,10 @@
             <section class="results-panel hidden" id="resultsPanel">
                 <div class="panel-header">
                     <h2>Simulation Results</h2>
-                    <button id="exportResultsBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">EXPORT RESULTS (.ZIP)</button>
+                    <div class="results-actions">
+                        <button id="exportResultsBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">DOWNLOAD RESULTS (.ZIP)</button>
+                        <button type="button" id="exportJsonBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">EXPORT SETTINGS (JSON)</button>
+                    </div>
                 </div>
                 <div class="results-content">
                     <div class="chart-container">

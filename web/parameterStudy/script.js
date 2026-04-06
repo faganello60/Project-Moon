@@ -1,4 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const PARAM_NAMES = ['delta', 'nelectron', 'bmag', 'asize'];
+    const EXAMPLE_SETTINGS_PATHS = [
+        '../../examples/parameter_study_settings.json',
+        '/examples/parameter_study_settings.json',
+        'examples/parameter_study_settings.json'
+    ];
+
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
     const loader = document.getElementById('loader');
@@ -8,13 +15,91 @@ document.addEventListener('DOMContentLoaded', () => {
     // JSON Import/Export Elements
     const importJsonBtn = document.getElementById('importJsonBtn');
     const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const fillExampleBtn = document.getElementById('fillExampleBtn');
     const jsonFile = document.getElementById('jsonFile');
 
     // Visibility Logic for Parameter Inputs
     const studyParams = document.querySelectorAll('input[name="study_param"]');
+
+    function parseNumber(value) {
+        const parsed = parseFloat(value);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function getSelectedParam() {
+        return document.querySelector('input[name="study_param"]:checked').value;
+    }
+
+    function getExportData() {
+        return {
+            viewAngle: parseNumber(document.getElementById('viewAngle').value),
+            height: parseNumber(document.getElementById('height').value),
+            j1: parseInt(document.getElementById('j1').value, 10),
+            j2: parseInt(document.getElementById('j2').value, 10),
+            etr: parseNumber(document.getElementById('etr').value),
+            np: parseNumber(document.getElementById('np').value),
+            study_param: getSelectedParam(),
+            delta: getParamValues('delta'),
+            nelectron: getParamValues('nelectron'),
+            bmag: getParamValues('bmag'),
+            asize: getParamValues('asize')
+        };
+    }
+
+    function applySettings(data) {
+        if (data.viewAngle !== undefined) document.getElementById('viewAngle').value = data.viewAngle;
+        if (data.height !== undefined) document.getElementById('height').value = data.height;
+        if (data.j1 !== undefined) document.getElementById('j1').value = data.j1;
+        if (data.j2 !== undefined) document.getElementById('j2').value = data.j2;
+        if (data.etr !== undefined) document.getElementById('etr').value = data.etr;
+        if (data.np !== undefined) document.getElementById('np').value = data.np;
+
+        const selectedParam = data.study_param || getSelectedParam();
+        const selectedRadio = document.querySelector(`input[name="study_param"][value="${selectedParam}"]`);
+        if (selectedRadio) {
+            selectedRadio.checked = true;
+        }
+
+        PARAM_NAMES.forEach(paramName => {
+            const rawValue = data[paramName] ?? data.params?.[paramName]?.value;
+            const values = Array.isArray(rawValue) ? rawValue : rawValue !== undefined ? [rawValue] : [];
+
+            for (let index = 1; index <= 4; index += 1) {
+                const input = document.getElementById(`${paramName}_val_${index}`);
+                input.value = values[index - 1] ?? '';
+            }
+        });
+
+        updateInputVisibility();
+    }
+
+    function downloadJsonFile(data, filename) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function loadExampleSettings() {
+        for (const path of EXAMPLE_SETTINGS_PATHS) {
+            try {
+                const response = await fetch(path);
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (error) {
+                console.error(`Failed to load example from ${path}`, error);
+            }
+        }
+
+        throw new Error('Could not locate parameter_study_settings.json');
+    }
     
     function updateInputVisibility() {
-        const selectedValue = document.querySelector('input[name="study_param"]:checked').value;
+        const selectedValue = getSelectedParam();
         
         ['delta', 'nelectron', 'bmag', 'asize'].forEach(param => {
             const row = document.getElementById(`${param}_row`);
@@ -50,33 +135,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // JSON Export Logic
     exportJsonBtn.addEventListener('click', () => {
-        const formData = {
-            viewAngle: parseFloat(document.getElementById('viewAngle').value),
-            height: parseFloat(document.getElementById('height').value),
-            j1: parseInt(document.getElementById('j1').value),
-            j2: parseInt(document.getElementById('j2').value),
-            etr: parseFloat(document.getElementById('etr').value),
-            np: parseFloat(document.getElementById('np').value),
-            // We can export the "first" value of each parameter as a base, 
-            // or the whole study setup. Let's export the first value for compatibility 
-            // with the other tool, or just the values present.
-            delta: parseFloat(document.getElementById('delta_val_1').value),
-            nelectron: parseFloat(document.getElementById('nelectron_val_1').value),
-            bmag: parseFloat(document.getElementById('bmag_val_1').value),
-            asize: parseFloat(document.getElementById('asize_val_1').value)
-        };
-
-        const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `parameter_study_settings.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadJsonFile(getExportData(), 'parameter_study_settings.json');
     });
 
     // JSON Import Logic
     importJsonBtn.addEventListener('click', () => jsonFile.click());
+
+    fillExampleBtn.addEventListener('click', async () => {
+        try {
+            const exampleData = await loadExampleSettings();
+            applySettings(exampleData);
+        } catch (error) {
+            console.error(error);
+            alert(`Unable to load example settings: ${error.message}`);
+        }
+    });
 
     jsonFile.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -86,37 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                
-                if (data.viewAngle !== undefined) document.getElementById('viewAngle').value = data.viewAngle;
-                if (data.height !== undefined) document.getElementById('height').value = data.height;
-                if (data.j1 !== undefined) document.getElementById('j1').value = data.j1;
-                if (data.j2 !== undefined) document.getElementById('j2').value = data.j2;
-                if (data.etr !== undefined) document.getElementById('etr').value = data.etr;
-                if (data.np !== undefined) document.getElementById('np').value = data.np;
-                
-                // Try to fill standard "val_1" slots if keys exist (handling both simple and complex JSONs)
-                // If the JSON came from the optimization tool, params are nested under 'params'.
-                // If it came from here, they might be direct.
-                
-                let deltaVal, nelectronVal, bmagVal, asizeVal;
-
-                if (data.params) { // Optimization tool format
-                     if (data.params.delta) deltaVal = data.params.delta.value;
-                     if (data.params.nelectron) nelectronVal = data.params.nelectron.value;
-                     if (data.params.bmag) bmagVal = data.params.bmag.value;
-                     if (data.params.asize) asizeVal = data.params.asize.value;
-                } else { // Direct format (flat)
-                    deltaVal = data.delta;
-                    nelectronVal = data.nelectron;
-                    bmagVal = data.bmag;
-                    asizeVal = data.asize;
-                }
-
-                if (deltaVal !== undefined) document.getElementById('delta_val_1').value = deltaVal;
-                if (nelectronVal !== undefined) document.getElementById('nelectron_val_1').value = nelectronVal;
-                if (bmagVal !== undefined) document.getElementById('bmag_val_1').value = bmagVal;
-                if (asizeVal !== undefined) document.getElementById('asize_val_1').value = asizeVal;
-                
+                applySettings(data);
                 e.target.value = ''; // Reset
                 
             } catch (err) {
@@ -128,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getParamValues(paramName) {
         // Collect values from inputs named paramName_val_1 to _4
-        const selectedParam = document.querySelector('input[name="study_param"]:checked').value;
+        const selectedParam = getSelectedParam();
         
         let values = [];
         // Always get the first value
@@ -164,12 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Construct payload matching ParameterImpactRequest
             const formData = {
-                viewAngle: parseFloat(document.getElementById('viewAngle').value),
-                height: parseFloat(document.getElementById('height').value),
-                j1: parseInt(document.getElementById('j1').value),
-                j2: parseInt(document.getElementById('j2').value),
-                etr: parseFloat(document.getElementById('etr').value),
-                np: parseFloat(document.getElementById('np').value),
+                viewAngle: parseNumber(document.getElementById('viewAngle').value),
+                height: parseNumber(document.getElementById('height').value),
+                j1: parseInt(document.getElementById('j1').value, 10),
+                j2: parseInt(document.getElementById('j2').value, 10),
+                etr: parseNumber(document.getElementById('etr').value),
+                np: parseNumber(document.getElementById('np').value),
                 delta: getParamValues('delta'),
                 nelectron: getParamValues('nelectron'),
                 bmag: getParamValues('bmag'),

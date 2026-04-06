@@ -27,7 +27,7 @@
                 <form id="gsyncForm">
                     <div class="button-group secondary">
                         <button type="button" id="importJsonBtn" class="json-btn">IMPORT SETTINGS (JSON)</button>
-                        <button type="button" id="exportJsonBtn" class="json-btn">EXPORT SETTINGS (JSON)</button>
+                        <button type="button" id="fillExampleBtn" class="json-btn">FILL WITH AN EXAMPLE</button>
                         <input type="file" id="jsonFile" accept=".json" class="hidden">
                     </div>
 
@@ -146,7 +146,9 @@
             <section class="results-panel hidden" id="resultsPanel">
                 <div class="panel-header">
                     <h2>Simulation Results</h2>
-                    <!-- <button id="exportResultsBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">EXPORT RESULTS (.ZIP)</button> -->
+                    <div class="results-actions">
+                        <button type="button" id="exportJsonBtn" class="json-btn" style="padding: 0.5rem 1rem; flex: 0 0 auto;">EXPORT SETTINGS (JSON)</button>
+                    </div>
                 </div>
                 <div class="results-content">
                     <div class="chart-container">
