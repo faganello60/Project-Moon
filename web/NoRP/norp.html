@@ -21,10 +21,18 @@
             <section class="control-panel">
                 <div class="panel-header">
                     <h2>Observation</h2>
-                    <a class="json-btn back-btn" href="../index.html">BACK</a>
                 </div>
 
                 <form id="norp-form">
+                    <div class="section-header">
+                        <h3>Analysis Mode</h3>
+                    </div>
+
+                    <div class="button-group secondary">
+                        <button id="mode-automatic-button" type="button">AUTOMATIC (BETA)</button>
+                        <button id="mode-manual-button" type="button" class="json-btn">MANUAL PREVIEW</button>
+                    </div>
+
                     <div class="grid-layout">
                         <div class="input-group">
                             <label for="api-base-url">API Base URL</label>
@@ -36,13 +44,37 @@
                         </div>
                     </div>
 
+                    <div id="manual-range-panel" class="params-section hidden">
+                        <div class="section-header">
+                            <h3>Manual Time Ranges</h3>
+                        </div>
+                        <div class="grid-layout">
+                            <div class="input-group">
+                                <label for="pre-flare-start">Pre-Flare Start</label>
+                                <input id="pre-flare-start" type="text" placeholder="YYYY-MM-DDTHH:MM:SS.sssZ">
+                            </div>
+                            <div class="input-group">
+                                <label for="pre-flare-end">Pre-Flare End</label>
+                                <input id="pre-flare-end" type="text" placeholder="YYYY-MM-DDTHH:MM:SS.sssZ">
+                            </div>
+                            <div class="input-group">
+                                <label for="peak-start">Peak Start</label>
+                                <input id="peak-start" type="text" placeholder="YYYY-MM-DDTHH:MM:SS.sssZ">
+                            </div>
+                            <div class="input-group">
+                                <label for="peak-end">Peak End</label>
+                                <input id="peak-end" type="text" placeholder="YYYY-MM-DDTHH:MM:SS.sssZ">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="button-group">
-                        <button id="submit-button" type="submit">RUN NOrP ANALYSIS</button>
+                        <button id="manual-final-button" class="hidden" type="button">RUN FINAL MANUAL ANALYSIS</button>
                     </div>
                 </form>
 
                 <div id="status-card" class="status-card idle">
-                    Select a file and send it to the backend.
+                    Select a file and choose one of the analysis modes.
                 </div>
             </section>
 
@@ -105,6 +137,11 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <div id="loader" class="loader hidden">
+        <div class="moon"></div>
+        <p id="loader-text">Calculating Trajectory...</p>
     </div>
 
     <script src="script.js"></script>

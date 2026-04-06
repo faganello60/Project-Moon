@@ -113,10 +113,10 @@ def automatic_preview_windows(times: List[datetime], flux: Dict[float, np.ndarra
 
     peak_start_index = max(0, peak_index - 43)
     peak_end_index = min(len(times), peak_index + 68)
-    analysis_start_index = max(0, preflare_start_index - 1200)
-    analysis_end_index = min(len(times), peak_end_index + 1200)
+    analysis_start_index = max(0, preflare_start_index - 300)
+    analysis_end_index = min(len(times), peak_end_index + 600)
     postflare_start_index = peak_end_index
-    postflare_end_index = min(len(times), postflare_start_index + 1200)
+    postflare_end_index = min(len(times), postflare_start_index + 600)
 
     return {
         "analysis": window_from_indices(times, analysis_start_index, analysis_end_index),
@@ -152,7 +152,7 @@ def build_background_removed_lightcurve(
     start_index = int(analysis_window["start_index"])
     end_index = int(analysis_window["end_index"])
 
-    fig, ax = plt.subplots(figsize=(12, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
     for frequency_hz in FREQUENCIES_HZ:
         ax.plot(
             times[start_index:end_index],

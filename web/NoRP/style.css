@@ -114,6 +114,36 @@ main {
     margin-bottom: 2rem;
 }
 
+.params-section {
+    margin-top: 2rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+    font-family: 'Orbitron', sans-serif;
+    color: var(--glow-blue);
+    font-size: 1rem;
+}
+
+.input-mode-switch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    font-family: 'Orbitron', sans-serif;
+    color: var(--glow-blue);
+}
+
+.mode-label {
+    white-space: nowrap;
+}
+
 .input-group {
     display: flex;
     flex-direction: column;
@@ -142,14 +172,62 @@ input:focus {
     box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
 }
 
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider.round {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #333;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider.round {
+    background-color: var(--glow-blue);
+}
+
+input:checked + .slider.round:before {
+    transform: translateX(20px);
+}
+
 .button-group {
     display: flex;
     gap: 1.5rem;
     margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.button-group.secondary {
+    margin-bottom: 2rem;
 }
 
 button, .json-btn {
     flex: 1;
+    min-width: 220px;
     padding: 0.8rem;
     background: linear-gradient(45deg, var(--glow-blue), var(--glow-purple));
     border: none;
@@ -168,6 +246,12 @@ button, .json-btn {
 button:hover, .json-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+}
+
+.mode-active {
+    background: linear-gradient(45deg, var(--glow-blue), var(--glow-purple));
+    color: white;
+    border: none;
 }
 
 .back-btn {
@@ -311,6 +395,41 @@ th {
 
 .hidden {
     display: none;
+}
+
+.loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+}
+
+.loader.hidden {
+    display: none;
+}
+
+.moon {
+    width: 100px;
+    height: 100px;
+    background: var(--moon-light);
+    border-radius: 50%;
+    box-shadow: inset -25px -25px 0 0 #c0c0c0, 0 0 40px rgba(255,255,255,0.3);
+    position: relative;
+    animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 @keyframes fadeInUp {

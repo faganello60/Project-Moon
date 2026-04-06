@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import argparse
 import base64
-import importlib.util
-import json
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -17,31 +14,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fastapi import HTTPException, UploadFile
 
-try:
-    from .norp_utils import (
-        norp_rd_1GHzI,
-        norp_rd_2GHzI,
-        norp_rd_4GHzI,
-        norp_rd_9GHzI,
-        norp_rd_17GHzI,
-        norp_rd_35GHzI,
-        norp_rd_80GHzI,
-        norp_rd_obsDay,
-        norp_rd_time,
-    )
-except (ImportError, ValueError):
-    sys.path.append(str(Path(__file__).resolve().parent))
-    from norp_utils import (
-        norp_rd_1GHzI,
-        norp_rd_2GHzI,
-        norp_rd_4GHzI,
-        norp_rd_9GHzI,
-        norp_rd_17GHzI,
-        norp_rd_35GHzI,
-        norp_rd_80GHzI,
-        norp_rd_obsDay,
-        norp_rd_time,
-    )
+from .norp_utils import (
+    norp_rd_1GHzI,
+    norp_rd_2GHzI,
+    norp_rd_4GHzI,
+    norp_rd_9GHzI,
+    norp_rd_17GHzI,
+    norp_rd_35GHzI,
+    norp_rd_80GHzI,
+    norp_rd_obsDay,
+    norp_rd_time,
+)
+
 
 
 FREQUENCIES_HZ = [1e9, 2e9, 3.75e9, 9.4e9, 17e9, 35e9, 80e9]
@@ -86,31 +70,54 @@ def automatic_flare_windows(times: List[datetime], flux: Dict[float, np.ndarray]
     smooth_window = 11
     kernel = np.ones(smooth_window, dtype=float) / float(smooth_window)
     flare_smooth = np.convolve(flare_reference, kernel, mode="same")
+    flare_derivative = np.gradient(flare_smooth)
 
     flare_peak_index = int(np.argmax(flare_smooth))
-    local_min_search_start = max(0, flare_peak_index - 3000)
-    local_min_search_end = max(local_min_search_start + 1, flare_peak_index - 600)
-    local_min_relative_index = int(np.argmin(flare_smooth[local_min_search_start:local_min_search_end]))
-    flare_start_index = local_min_search_start + local_min_relative_index
+    baseline_search_end = max(1, flare_peak_index - 1200)
+    baseline_search_start = max(0, flare_peak_index - 3600)
+    baseline_slice = flare_smooth[baseline_search_start:baseline_search_end]
+    baseline_index = baseline_search_start + int(np.argmin(baseline_slice))
+    baseline_level = float(np.median(baseline_slice))
+    baseline_noise = float(np.median(np.abs(baseline_slice - baseline_level))) * 1.4826
+    baseline_return_threshold = baseline_level + 2.0 * max(baseline_noise, 1e-9)
+    derivative_noise = float(np.median(np.abs(flare_derivative[baseline_search_start:baseline_search_end]))) * 1.4826
+    derivative_threshold = 3.0 * max(derivative_noise, 1e-9)
 
-    local_max_search_end = min(len(flare_smooth), flare_peak_index + 1800)
-    decay_reference = flare_smooth[flare_start_index]
-    flare_end_index = flare_peak_index + 1
-    for index in range(flare_peak_index + 1, local_max_search_end):
-        if flare_smooth[index] <= decay_reference:
-            flare_end_index = index
+    flare_start_index = baseline_index
+    start_search_index = max(baseline_index, flare_peak_index - 1800)
+    for index in range(max(1, start_search_index), flare_peak_index):
+        signal_above_baseline = flare_smooth[index] >= baseline_level + 3.0 * max(baseline_noise, 1e-9)
+        if flare_derivative[index] > derivative_threshold and signal_above_baseline:
+            flare_start_index = index
+            break
+
+    flare_end_index = min(len(times), flare_peak_index + 1)
+    stable_points = 0
+    end_search_limit = min(len(times), flare_peak_index + 2400)
+    for index in range(flare_peak_index + 1, end_search_limit):
+        below_baseline = flare_smooth[index] <= baseline_return_threshold
+        low_derivative = abs(flare_derivative[index]) <= derivative_threshold
+        if below_baseline and low_derivative:
+            stable_points += 1
+        else:
+            stable_points = 0
+        if stable_points >= 20:
+            flare_end_index = index - stable_points + 1
             break
     if flare_end_index <= flare_peak_index + 1:
-        flare_end_index = min(len(times), flare_peak_index + 900)
+        flare_end_index = min(len(times), flare_peak_index + 1200)
+
+    flare_width = max(30, flare_end_index - flare_start_index)
 
     preflare_end_index = max(flare_start_index, 1)
-    preflare_start_index = max(0, preflare_end_index - 2430)
-    peak_start_index = max(0, flare_peak_index - 43)
-    peak_end_index = min(len(times), flare_peak_index + 68)
-    analysis_start_index = max(0, preflare_start_index - 1200)
-    analysis_end_index = min(len(times), flare_end_index + 1200)
+    preflare_start_index = max(0, preflare_end_index - min(2400, 2 * flare_width))
+    peak_half_width = max(20, min(120, flare_width // 6))
+    peak_start_index = max(0, flare_peak_index - peak_half_width)
+    peak_end_index = min(len(times), flare_peak_index + peak_half_width + 1)
+    analysis_start_index = max(0, preflare_start_index - min(600, flare_width // 2))
+    analysis_end_index = min(len(times), flare_end_index + min(900, flare_width // 2))
     postflare_start_index = min(len(times) - 1, flare_end_index)
-    postflare_end_index = min(len(times), postflare_start_index + 1200)
+    postflare_end_index = min(len(times), postflare_start_index + min(1200, flare_width))
 
     return {
         "analysis": window_dict(times, analysis_start_index, analysis_end_index),
@@ -240,4 +247,3 @@ async def save_upload(upload: UploadFile) -> str:
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
         temp_file.write(await upload.read())
         return temp_file.name
-
