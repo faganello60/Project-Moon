@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentEndpoint = '/gsync';
     let lastSimulationData = null;
+    let lastRequestData = null;
     let spectrumChart = null;
 
     function parseNumber(value) {
@@ -274,6 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const formData = buildFormData();
+            lastRequestData = formData;
             const apiUrl = `${API_BASE_URL}${currentEndpoint}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -308,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultImage.src = `data:image/png;base64,${data.image}`;
         }
 
-        renderSpectrumChart(data.bins, data.flux);
+        renderSpectrumChart(data.bins, data.flux, lastRequestData?.freq, lastRequestData?.sfu);
 
         fitReport.textContent = data.fit_report;
         bestValuesContainer.innerHTML = '';
@@ -335,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
     }
 
-    function renderSpectrumChart(bins, flux) {
+    function renderSpectrumChart(bins, flux, freq, sfu) {
         if (typeof Chart === 'undefined') {
             return;
         }
@@ -349,26 +351,48 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const points = bins.map((x, index) => ({
-            x,
-            y: flux[index]
-        }));
+        const fitPoints = bins
+            .map((x, index) => ({
+                x: Number(x),
+                y: Number(flux[index])
+            }))
+            .filter(point => point.x > 0 && point.y > 0);
+
+        const observedPoints = Array.isArray(freq) && Array.isArray(sfu)
+            ? freq
+                .map((x, index) => ({
+                    x: Number(x),
+                    y: Number(sfu[index])
+                }))
+                .filter(point => point.x > 0 && point.y > 0)
+            : [];
+
+        if (fitPoints.length === 0) {
+            return;
+        }
 
         spectrumChart = new Chart(resultChartCanvas, {
             type: 'line',
             data: {
                 datasets: [{
-                    label: 'Flux',
-                    data: points,
+                    label: 'Fitting',
+                    data: fitPoints,
                     borderColor: '#00d2ff',
                     backgroundColor: 'rgba(0, 210, 255, 0.18)',
-                    pointBackgroundColor: '#ff4d4d',
-                    pointBorderColor: '#ffffff',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
                     borderWidth: 2,
-                    tension: 0.18,
+                    tension: 0,
                     fill: false
+                }, {
+                    label: 'Observed Data',
+                    data: observedPoints,
+                    type: 'scatter',
+                    showLine: false,
+                    backgroundColor: '#ff4d4d',
+                    borderColor: '#ffffff',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
@@ -379,6 +403,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     intersect: false
                 },
                 plugins: {
+                    title: {
+                        display: true,
+                        text: 'Logarithmic visualization (X and Y axes)',
+                        color: '#e0e0e0',
+                        font: {
+                            family: 'Orbitron, sans-serif',
+                            size: 14
+                        },
+                        padding: {
+                            bottom: 16
+                        }
+                    },
                     legend: {
                         labels: {
                             color: '#e0e0e0'
@@ -389,17 +425,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             label(context) {
                                 const xValue = Number(context.parsed.x);
                                 const yValue = Number(context.parsed.y);
-                                return ` Flux: ${yValue.toExponential(4)} | Bin: ${xValue.toExponential(4)}`;
+                                return `${context.dataset.label}: ${yValue.toExponential(4)} @ ${xValue.toExponential(4)}`;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        type: 'linear',
+                        type: 'logarithmic',
                         title: {
                             display: true,
-                            text: 'Bins',
+                            text: 'Frequency (Hz)',
                             color: '#00d2ff'
                         },
                         ticks: {
@@ -413,9 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     },
                     y: {
+                        type: 'logarithmic',
                         title: {
                             display: true,
-                            text: 'Flux',
+                            text: 'Flux Density (SFU)',
                             color: '#00d2ff'
                         },
                         ticks: {
