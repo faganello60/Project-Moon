@@ -72,8 +72,8 @@ def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectro
 
     plt.xlabel('Frequency (Hz)', fontsize=14)
     plt.ylabel('Flux Density (SFU)', fontsize=14)
-    plt.xlim(1.0e9, 1.0e11)
-    plt.ylim(1e0, 1e3)
+    # plt.xlim(1.0e9, 1.0e11)
+    # plt.ylim(1e0, 1e3)
     plt.xscale('log')
     plt.yscale('log')
     plt.legend(loc='best', fontsize=16, frameon=False)

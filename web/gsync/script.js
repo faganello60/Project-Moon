@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '/examples/demo_settings.json',
         'examples/demo_settings.json'
     ];
+    const API_BASE_URL = window.location.port === '8080' ? '/api' : 'http://localhost:8000';
 
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
@@ -12,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loader = document.getElementById('loader');
     const resultsPanel = document.getElementById('resultsPanel');
     const resultImage = document.getElementById('resultImage');
+    const resultChartCanvas = document.getElementById('resultChart');
     const fitReport = document.getElementById('fitReport');
     const bestValuesContainer = document.getElementById('bestValues');
     const datFile = document.getElementById('datFile');
@@ -27,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentEndpoint = '/gsync';
     let lastSimulationData = null;
+    let spectrumChart = null;
 
     function parseNumber(value) {
         const parsed = parseFloat(value);
@@ -75,11 +78,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateParamRowState(name) {
         const row = document.querySelector(`.param-row[data-param="${name}"]`);
         const varyCheckbox = document.getElementById(`${name}_vary`);
+        const valueLabel = row.querySelector(`label[for="${name}_val"]`);
         const minInput = document.getElementById(`${name}_min`);
         const maxInput = document.getElementById(`${name}_max`);
         const isFixed = !varyCheckbox.checked;
 
         row.classList.toggle('is-fixed', isFixed);
+        valueLabel.textContent = isFixed ? 'Value' : 'Initial Guess';
         minInput.disabled = isFixed;
         maxInput.disabled = isFixed;
 
@@ -269,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const formData = buildFormData();
-            const apiUrl = `/api${currentEndpoint}`;
+            const apiUrl = `${API_BASE_URL}${currentEndpoint}`;
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -303,6 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
             resultImage.src = `data:image/png;base64,${data.image}`;
         }
 
+        renderSpectrumChart(data.bins, data.flux);
+
         fitReport.textContent = data.fit_report;
         bestValuesContainer.innerHTML = '';
 
@@ -326,6 +333,104 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderSpectrumChart(bins, flux) {
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+        if (spectrumChart) {
+            spectrumChart.destroy();
+            spectrumChart = null;
+        }
+
+        if (!Array.isArray(bins) || !Array.isArray(flux) || bins.length !== flux.length || bins.length === 0) {
+            return;
+        }
+
+        const points = bins.map((x, index) => ({
+            x,
+            y: flux[index]
+        }));
+
+        spectrumChart = new Chart(resultChartCanvas, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Flux',
+                    data: points,
+                    borderColor: '#00d2ff',
+                    backgroundColor: 'rgba(0, 210, 255, 0.18)',
+                    pointBackgroundColor: '#ff4d4d',
+                    pointBorderColor: '#ffffff',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    borderWidth: 2,
+                    tension: 0.18,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#e0e0e0'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(context) {
+                                const xValue = Number(context.parsed.x);
+                                const yValue = Number(context.parsed.y);
+                                return ` Flux: ${yValue.toExponential(4)} | Bin: ${xValue.toExponential(4)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Bins',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                return Number(value).toExponential(2);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Flux',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                return Number(value).toExponential(2);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    }
+                }
+            }
+        });
     }
 
     PARAM_NAMES.forEach(name => {

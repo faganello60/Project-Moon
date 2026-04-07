@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '/examples/parameter_study_settings.json',
         'examples/parameter_study_settings.json'
     ];
+    const API_BASE_URL = window.location.port === '8080' ? '/api' : 'http://localhost:8000';
 
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
@@ -219,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 asize: getParamValues('asize')
             };
 
-            const apiUrl = '/api/parameterImpact';
+            const apiUrl = `${API_BASE_URL}/parameterImpact`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
