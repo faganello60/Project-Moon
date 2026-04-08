@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '/examples/demo_settings.json',
         'examples/demo_settings.json'
     ];
-    const API_BASE_URL = window.location.port === '8080' ? '/api' : 'http://localhost:8000';
+    const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000';
 
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
@@ -404,16 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 plugins: {
                     title: {
-                        display: true,
-                        text: 'Logarithmic visualization (X and Y axes)',
-                        color: '#e0e0e0',
-                        font: {
-                            family: 'Orbitron, sans-serif',
-                            size: 14
-                        },
-                        padding: {
-                            bottom: 16
-                        }
+                        display: false
                     },
                     legend: {
                         labels: {
@@ -422,10 +413,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     tooltip: {
                         callbacks: {
+                            title() {
+                                return '';
+                            },
                             label(context) {
                                 const xValue = Number(context.parsed.x);
                                 const yValue = Number(context.parsed.y);
-                                return `${context.dataset.label}: ${yValue.toExponential(4)} @ ${xValue.toExponential(4)}`;
+                                return [
+                                    `Series: ${context.dataset.label}`,
+                                    `Frequency (Hz): ${xValue.toExponential(4)}`,
+                                    `Flux Density (SFU): ${yValue.toExponential(4)}`
+                                ];
                             }
                         }
                     }
@@ -441,7 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         ticks: {
                             color: '#e0e0e0',
                             callback(value) {
-                                return Number(value).toExponential(2);
+                                const numericValue = Number(value);
+                                const exponent = Math.log10(numericValue);
+                                return Number.isInteger(exponent) ? numericValue.toExponential(0) : '';
                             }
                         },
                         grid: {

@@ -59,6 +59,10 @@ python -m http.server 8080
 ```
 Then open `http://localhost:8080` in your browser.
 
+Frontend API host configuration:
+For local manual execution, edit `web/config.js`. The default is `http://localhost:8000`.
+For Docker, the frontend container now generates `config.js` at startup from the `API_BASE_URL` environment variable. In `docker-compose.yml`, it is set to `/api`, so the built container uses the nginx proxy automatically.
+
 ### 5. Testing APIs with Bruno
 We recommend using **[Bruno](https://www.usebruno.com/)**, a fast and open-source API client, to test the endpoints.
 

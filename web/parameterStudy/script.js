@@ -5,13 +5,15 @@ document.addEventListener('DOMContentLoaded', () => {
         '/examples/parameter_study_settings.json',
         'examples/parameter_study_settings.json'
     ];
-    const API_BASE_URL = window.location.port === '8080' ? '/api' : 'http://localhost:8000';
+    const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000';
 
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
     const loader = document.getElementById('loader');
     const resultsPanel = document.getElementById('resultsPanel');
     const resultImage = document.getElementById('resultImage');
+    const resultChartCanvas = document.getElementById('resultChart');
+    let spectrumChart = null;
     
     // JSON Import/Export Elements
     const importJsonBtn = document.getElementById('importJsonBtn');
@@ -253,7 +255,136 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.image) {
             resultImage.src = `data:image/png;base64,${data.image}`;
         }
+
+        renderSpectrumChart(data.bins, data.flux_results);
         
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderSpectrumChart(bins, fluxResults) {
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+        if (spectrumChart) {
+            spectrumChart.destroy();
+            spectrumChart = null;
+        }
+
+        if (!Array.isArray(bins) || bins.length === 0 || !Array.isArray(fluxResults) || fluxResults.length === 0) {
+            return;
+        }
+
+        const palette = ['#00d2ff', '#ff4d4d', '#9d50bb', '#00f5a0', '#ffd166', '#ef476f'];
+        const datasets = fluxResults
+            .map((series, index) => {
+                const parameterValue = series.parameterValue ?? series.parameter_value ?? series.parameter;
+                const label = `${series.prefix} - ${parameterValue}`;
+                const points = bins
+                    .map((x, pointIndex) => ({
+                        x: Number(x),
+                        y: Number(series.flux?.[pointIndex])
+                    }))
+                    .filter(point => point.x > 0 && point.y > 0);
+
+                if (points.length === 0) {
+                    return null;
+                }
+
+                const color = palette[index % palette.length];
+                return {
+                    label,
+                    data: points,
+                    borderColor: color,
+                    backgroundColor: `${color}33`,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    borderWidth: 2,
+                    tension: 0,
+                    fill: false
+                };
+            })
+            .filter(Boolean);
+
+        if (datasets.length === 0) {
+            return;
+        }
+
+        spectrumChart = new Chart(resultChartCanvas, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        labels: {
+                            color: '#e0e0e0'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title() {
+                                return '';
+                            },
+                            label(context) {
+                                const xValue = Number(context.parsed.x);
+                                const yValue = Number(context.parsed.y);
+                                return [
+                                    `Series: ${context.dataset.label}`,
+                                    `Frequency (Hz): ${xValue.toExponential(4)}`,
+                                    `Flux Density (SFU): ${yValue.toExponential(4)}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        title: {
+                            display: true,
+                            text: 'Frequency (Hz)',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                const numericValue = Number(value);
+                                const exponent = Math.log10(numericValue);
+                                return Number.isInteger(exponent) ? numericValue.toExponential(0) : '';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    },
+                    y: {
+                        type: 'logarithmic',
+                        title: {
+                            display: true,
+                            text: 'Flux Density (SFU)',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                return Number(value).toExponential(2);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    }
+                }
+            }
+        });
     }
 });

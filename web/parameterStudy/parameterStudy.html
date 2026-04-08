@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="stars"></div>
@@ -151,7 +152,12 @@
                     </div>
                 </div>
                 <div class="results-content">
+                    <div class="chart-container chart-container--interactive">
+                        <h3>Spectrum Chart</h3>
+                        <canvas id="resultChart" aria-label="Interactive spectrum chart"></canvas>
+                    </div>
                     <div class="chart-container">
+                        <h3>Chart Image</h3>
                         <img id="resultImage" src="" alt="Simulation Plot">
                     </div>
                 </div>
@@ -164,6 +170,7 @@
         <p>Calculating Trajectory...</p>
     </div>
 
+    <script src="../config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
