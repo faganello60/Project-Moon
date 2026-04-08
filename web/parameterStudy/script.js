@@ -1,20 +1,97 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const PARAM_NAMES = ['delta', 'nelectron', 'bmag', 'asize'];
+    const EXAMPLE_SETTINGS_PATH = '../examples/parameter_study_settings.json';
+    const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000';
+
     const form = document.getElementById('gsyncForm');
     const runBtn = document.getElementById('runBtn');
     const loader = document.getElementById('loader');
     const resultsPanel = document.getElementById('resultsPanel');
     const resultImage = document.getElementById('resultImage');
+    const resultChartCanvas = document.getElementById('resultChart');
+    let spectrumChart = null;
     
     // JSON Import/Export Elements
     const importJsonBtn = document.getElementById('importJsonBtn');
     const exportJsonBtn = document.getElementById('exportJsonBtn');
+    const fillExampleBtn = document.getElementById('fillExampleBtn');
     const jsonFile = document.getElementById('jsonFile');
 
     // Visibility Logic for Parameter Inputs
     const studyParams = document.querySelectorAll('input[name="study_param"]');
+
+    function parseNumber(value) {
+        const parsed = parseFloat(value);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function getSelectedParam() {
+        return document.querySelector('input[name="study_param"]:checked').value;
+    }
+
+    function getExportData() {
+        return {
+            viewAngle: parseNumber(document.getElementById('viewAngle').value),
+            height: parseNumber(document.getElementById('height').value),
+            j1: parseInt(document.getElementById('j1').value, 10),
+            j2: parseInt(document.getElementById('j2').value, 10),
+            etr: parseNumber(document.getElementById('etr').value),
+            np: parseNumber(document.getElementById('np').value),
+            study_param: getSelectedParam(),
+            delta: getParamValues('delta'),
+            nelectron: getParamValues('nelectron'),
+            bmag: getParamValues('bmag'),
+            asize: getParamValues('asize')
+        };
+    }
+
+    function applySettings(data) {
+        if (data.viewAngle !== undefined) document.getElementById('viewAngle').value = data.viewAngle;
+        if (data.height !== undefined) document.getElementById('height').value = data.height;
+        if (data.j1 !== undefined) document.getElementById('j1').value = data.j1;
+        if (data.j2 !== undefined) document.getElementById('j2').value = data.j2;
+        if (data.etr !== undefined) document.getElementById('etr').value = data.etr;
+        if (data.np !== undefined) document.getElementById('np').value = data.np;
+
+        const selectedParam = data.study_param || getSelectedParam();
+        const selectedRadio = document.querySelector(`input[name="study_param"][value="${selectedParam}"]`);
+        if (selectedRadio) {
+            selectedRadio.checked = true;
+        }
+
+        PARAM_NAMES.forEach(paramName => {
+            const rawValue = data[paramName] ?? data.params?.[paramName]?.value;
+            const values = Array.isArray(rawValue) ? rawValue : rawValue !== undefined ? [rawValue] : [];
+
+            for (let index = 1; index <= 4; index += 1) {
+                const input = document.getElementById(`${paramName}_val_${index}`);
+                input.value = values[index - 1] ?? '';
+            }
+        });
+
+        updateInputVisibility();
+    }
+
+    function downloadJsonFile(data, filename) {
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function loadExampleSettings() {
+        const response = await fetch(EXAMPLE_SETTINGS_PATH);
+        if (!response.ok) {
+            throw new Error(`Could not load ${EXAMPLE_SETTINGS_PATH}`);
+        }
+        return response.json();
+    }
     
     function updateInputVisibility() {
-        const selectedValue = document.querySelector('input[name="study_param"]:checked').value;
+        const selectedValue = getSelectedParam();
         
         ['delta', 'nelectron', 'bmag', 'asize'].forEach(param => {
             const row = document.getElementById(`${param}_row`);
@@ -50,33 +127,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // JSON Export Logic
     exportJsonBtn.addEventListener('click', () => {
-        const formData = {
-            viewAngle: parseFloat(document.getElementById('viewAngle').value),
-            height: parseFloat(document.getElementById('height').value),
-            j1: parseInt(document.getElementById('j1').value),
-            j2: parseInt(document.getElementById('j2').value),
-            etr: parseFloat(document.getElementById('etr').value),
-            np: parseFloat(document.getElementById('np').value),
-            // We can export the "first" value of each parameter as a base, 
-            // or the whole study setup. Let's export the first value for compatibility 
-            // with the other tool, or just the values present.
-            delta: parseFloat(document.getElementById('delta_val_1').value),
-            nelectron: parseFloat(document.getElementById('nelectron_val_1').value),
-            bmag: parseFloat(document.getElementById('bmag_val_1').value),
-            asize: parseFloat(document.getElementById('asize_val_1').value)
-        };
-
-        const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `parameter_study_settings.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        downloadJsonFile(getExportData(), 'parameter_study_settings.json');
     });
 
     // JSON Import Logic
     importJsonBtn.addEventListener('click', () => jsonFile.click());
+
+    fillExampleBtn.addEventListener('click', async () => {
+        try {
+            const exampleData = await loadExampleSettings();
+            applySettings(exampleData);
+        } catch (error) {
+            console.error(error);
+            alert(`Unable to load example settings: ${error.message}`);
+        }
+    });
 
     jsonFile.addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -86,37 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (event) => {
             try {
                 const data = JSON.parse(event.target.result);
-                
-                if (data.viewAngle !== undefined) document.getElementById('viewAngle').value = data.viewAngle;
-                if (data.height !== undefined) document.getElementById('height').value = data.height;
-                if (data.j1 !== undefined) document.getElementById('j1').value = data.j1;
-                if (data.j2 !== undefined) document.getElementById('j2').value = data.j2;
-                if (data.etr !== undefined) document.getElementById('etr').value = data.etr;
-                if (data.np !== undefined) document.getElementById('np').value = data.np;
-                
-                // Try to fill standard "val_1" slots if keys exist (handling both simple and complex JSONs)
-                // If the JSON came from the optimization tool, params are nested under 'params'.
-                // If it came from here, they might be direct.
-                
-                let deltaVal, nelectronVal, bmagVal, asizeVal;
-
-                if (data.params) { // Optimization tool format
-                     if (data.params.delta) deltaVal = data.params.delta.value;
-                     if (data.params.nelectron) nelectronVal = data.params.nelectron.value;
-                     if (data.params.bmag) bmagVal = data.params.bmag.value;
-                     if (data.params.asize) asizeVal = data.params.asize.value;
-                } else { // Direct format (flat)
-                    deltaVal = data.delta;
-                    nelectronVal = data.nelectron;
-                    bmagVal = data.bmag;
-                    asizeVal = data.asize;
-                }
-
-                if (deltaVal !== undefined) document.getElementById('delta_val_1').value = deltaVal;
-                if (nelectronVal !== undefined) document.getElementById('nelectron_val_1').value = nelectronVal;
-                if (bmagVal !== undefined) document.getElementById('bmag_val_1').value = bmagVal;
-                if (asizeVal !== undefined) document.getElementById('asize_val_1').value = asizeVal;
-                
+                applySettings(data);
                 e.target.value = ''; // Reset
                 
             } catch (err) {
@@ -128,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getParamValues(paramName) {
         // Collect values from inputs named paramName_val_1 to _4
-        const selectedParam = document.querySelector('input[name="study_param"]:checked').value;
+        const selectedParam = getSelectedParam();
         
         let values = [];
         // Always get the first value
@@ -164,19 +199,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Construct payload matching ParameterImpactRequest
             const formData = {
-                viewAngle: parseFloat(document.getElementById('viewAngle').value),
-                height: parseFloat(document.getElementById('height').value),
-                j1: parseInt(document.getElementById('j1').value),
-                j2: parseInt(document.getElementById('j2').value),
-                etr: parseFloat(document.getElementById('etr').value),
-                np: parseFloat(document.getElementById('np').value),
+                viewAngle: parseNumber(document.getElementById('viewAngle').value),
+                height: parseNumber(document.getElementById('height').value),
+                j1: parseInt(document.getElementById('j1').value, 10),
+                j2: parseInt(document.getElementById('j2').value, 10),
+                etr: parseNumber(document.getElementById('etr').value),
+                np: parseNumber(document.getElementById('np').value),
                 delta: getParamValues('delta'),
                 nelectron: getParamValues('nelectron'),
                 bmag: getParamValues('bmag'),
                 asize: getParamValues('asize')
             };
 
-            const apiUrl = '/api/parameterImpact';
+            const apiUrl = `${API_BASE_URL}/parameterImpact`;
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
@@ -209,7 +244,136 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.image) {
             resultImage.src = `data:image/png;base64,${data.image}`;
         }
+
+        renderSpectrumChart(data.bins, data.flux_results);
         
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderSpectrumChart(bins, fluxResults) {
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+        if (spectrumChart) {
+            spectrumChart.destroy();
+            spectrumChart = null;
+        }
+
+        if (!Array.isArray(bins) || bins.length === 0 || !Array.isArray(fluxResults) || fluxResults.length === 0) {
+            return;
+        }
+
+        const palette = ['#00d2ff', '#ff4d4d', '#9d50bb', '#00f5a0', '#ffd166', '#ef476f'];
+        const datasets = fluxResults
+            .map((series, index) => {
+                const parameterValue = series.parameterValue ?? series.parameter_value ?? series.parameter;
+                const label = `${series.prefix} - ${parameterValue}`;
+                const points = bins
+                    .map((x, pointIndex) => ({
+                        x: Number(x),
+                        y: Number(series.flux?.[pointIndex])
+                    }))
+                    .filter(point => point.x > 0 && point.y > 0);
+
+                if (points.length === 0) {
+                    return null;
+                }
+
+                const color = palette[index % palette.length];
+                return {
+                    label,
+                    data: points,
+                    borderColor: color,
+                    backgroundColor: `${color}33`,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    borderWidth: 2,
+                    tension: 0,
+                    fill: false
+                };
+            })
+            .filter(Boolean);
+
+        if (datasets.length === 0) {
+            return;
+        }
+
+        spectrumChart = new Chart(resultChartCanvas, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                plugins: {
+                    title: {
+                        display: false
+                    },
+                    legend: {
+                        labels: {
+                            color: '#e0e0e0'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title() {
+                                return '';
+                            },
+                            label(context) {
+                                const xValue = Number(context.parsed.x);
+                                const yValue = Number(context.parsed.y);
+                                return [
+                                    `Series: ${context.dataset.label}`,
+                                    `Frequency (Hz): ${xValue.toExponential(4)}`,
+                                    `Flux Density (SFU): ${yValue.toExponential(4)}`
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'logarithmic',
+                        title: {
+                            display: true,
+                            text: 'Frequency (Hz)',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                const numericValue = Number(value);
+                                const exponent = Math.log10(numericValue);
+                                return Number.isInteger(exponent) ? numericValue.toExponential(0) : '';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    },
+                    y: {
+                        type: 'logarithmic',
+                        title: {
+                            display: true,
+                            text: 'Flux Density (SFU)',
+                            color: '#00d2ff'
+                        },
+                        ticks: {
+                            color: '#e0e0e0',
+                            callback(value) {
+                                return Number(value).toExponential(2);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        }
+                    }
+                }
+            }
+        });
     }
 });

@@ -39,8 +39,11 @@ async def gsync_endpoint(request: GSyncRequest):
     lmfit_params = Parameters()
     for name, p in request.params.items():
         # lmfit Parameters handle None as +/- inf
-        lmfit_params.add(name, value=p.value, vary=p.vary, min=p.min, max=p.max)
-    
+        if p.vary:
+            lmfit_params.add(name, value=p.value, vary=p.vary, min=p.min, max=p.max)
+        else:
+            lmfit_params.add(name, value=p.value, vary=p.vary)
+
     try:
         # # Run the simulation
         result_json = gsync_api.run_gsync(
@@ -68,8 +71,10 @@ async def python_gsync_endpoint(request: GSyncRequest):
     # Convert parameters to lmfit.Parameters
     lmfit_params = Parameters()
     for name, p in request.params.items():
-        # lmfit Parameters handle None as +/- inf
-        lmfit_params.add(name, value=p.value, vary=p.vary, min=p.min, max=p.max)
+        if p.vary:
+            lmfit_params.add(name, value=p.value, vary=p.vary, min=p.min, max=p.max)
+        else:
+            lmfit_params.add(name, value=p.value, vary=p.vary)
     
     try:
         # # Run the simulation

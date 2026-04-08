@@ -11,6 +11,8 @@ services:
   frontend:
     image: faganello60/project-moon-frontend:1.1
     build: ./web
+    environment:
+      API_BASE_URL: /api
     ports:
       - "8080:80"
     depends_on:

@@ -72,8 +72,8 @@ def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectro
 
     plt.xlabel('Frequency (Hz)', fontsize=14)
     plt.ylabel('Flux Density (SFU)', fontsize=14)
-    plt.xlim(1.0e9, 1.0e11)
-    plt.ylim(1e0, 1e3)
+    # plt.xlim(1.0e9, 1.0e11)
+    # plt.ylim(1e0, 1e3)
     plt.xscale('log')
     plt.yscale('log')
     plt.legend(loc='best', fontsize=16, frameon=False)
@@ -85,7 +85,20 @@ def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectro
     img_base64 = base64.b64encode(buf.read()).decode('utf-8')
     plt.close()
 
+    formatted_bins = ["{:.15E}".format(float(b)) for b in bins]
+
+    formatted_flux_results = [
+        {
+            'prefix': prefix,
+            'parameter_value': parameter_value,
+            'flux': ["{:.15E}".format(float(value)) for value in flux_value]
+        }
+        for parameter_value, flux_value in zip(parameters, flux_results)
+    ]
+
     result = {
-        'image': img_base64
+        'image': img_base64,
+        'bins': formatted_bins,
+        'flux_results': formatted_flux_results
     }
     return json.dumps(result)
