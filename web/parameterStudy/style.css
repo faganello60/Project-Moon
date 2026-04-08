@@ -20,6 +20,8 @@ body {
     font-family: 'Roboto', sans-serif;
     overflow-x: hidden;
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Background Stars and Twinkling */
@@ -50,6 +52,7 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 2rem;
+    flex: 1;
 }
 
 header {
@@ -446,6 +449,24 @@ input:checked + .slider.round:before {
     box-shadow: inset -25px -25px 0 0 #c0c0c0, 0 0 40px rgba(255,255,255,0.3);
     position: relative;
     animation: rotate 10s linear infinite;
+}
+
+.footer {
+    text-align: center;
+    padding: 1.25rem 2rem 2rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.72rem;
+    color: rgba(224, 224, 224, 0.5);
+    letter-spacing: 1px;
+}
+
+.footer a {
+    color: var(--glow-blue);
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
 }
 
 @keyframes rotate {

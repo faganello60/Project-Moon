@@ -1,10 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const PARAM_NAMES = ['delta', 'nelectron', 'bmag', 'asize'];
-    const EXAMPLE_SETTINGS_PATHS = [
-        '../../examples/parameter_study_settings.json',
-        '/examples/parameter_study_settings.json',
-        'examples/parameter_study_settings.json'
-    ];
+    const EXAMPLE_SETTINGS_PATH = '../examples/parameter_study_settings.json';
     const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'http://localhost:8000';
 
     const form = document.getElementById('gsyncForm');
@@ -87,18 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadExampleSettings() {
-        for (const path of EXAMPLE_SETTINGS_PATHS) {
-            try {
-                const response = await fetch(path);
-                if (response.ok) {
-                    return await response.json();
-                }
-            } catch (error) {
-                console.error(`Failed to load example from ${path}`, error);
-            }
+        const response = await fetch(EXAMPLE_SETTINGS_PATH);
+        if (!response.ok) {
+            throw new Error(`Could not load ${EXAMPLE_SETTINGS_PATH}`);
         }
-
-        throw new Error('Could not locate parameter_study_settings.json');
+        return response.json();
     }
     
     function updateInputVisibility() {
