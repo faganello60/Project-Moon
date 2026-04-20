@@ -9,8 +9,8 @@ router = APIRouter()
 class ParameterImpactRequest(BaseModel):
     viewAngle: float
     height: float
-    j1: int
-    j2: int
+    emin: float
+    emax: float
     etr: float
     np: float
     delta: List[float]
@@ -26,8 +26,8 @@ async def analyze_sensitivity_endpoint(request: ParameterImpactRequest):
         result_json = analyze_sensitivity.parameter_impact(
             view_angle=request.viewAngle,
             height=request.height,
-            j1=request.j1,
-            j2=request.j2,
+            emin=request.emin,
+            emax=request.emax,
             etr=request.etr,
             plasma_np=request.np,
             delta=request.delta,

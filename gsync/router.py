@@ -24,8 +24,8 @@ class GSyncRequest(BaseModel):
     sfu: list[float]
     viewAngle: float
     height: float
-    j1: int
-    j2: int
+    emin: float
+    emax: float
     etr: float
     np: float
     params: Dict[str, ParamModel]
@@ -51,8 +51,8 @@ async def gsync_endpoint(request: GSyncRequest):
             sfu=request.sfu,
             view_angle=request.viewAngle,
             height=request.height,
-            j1=request.j1,
-            j2=request.j2,
+            emin=request.emin,
+            emax=request.emax,
             etr=request.etr,
             plasma_np=request.np,
             params=lmfit_params,
@@ -83,8 +83,8 @@ async def python_gsync_endpoint(request: GSyncRequest):
             sfu=request.sfu,
             view_angle=request.viewAngle,
             height=request.height,
-            j1=request.j1,
-            j2=request.j2,
+            emin=request.emin,
+            emax=request.emax,
             etr=request.etr,
             plasma_np=request.np,
             params=lmfit_params,

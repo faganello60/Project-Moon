@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from gyro import gyroPython as gyro  
+from gyro import gyroPython as gyro 
+from gyro import gyro_utils
 import io
 import base64
 import json
@@ -22,8 +23,9 @@ def _gyro_worker(task):
     
     return gyro.gyro(bins, *current_args)
 
-def parameter_impact(view_angle, height, j1, j2, etr, plasma_np, delta, nelectron, bmag, asize):
-
+def parameter_impact(view_angle, height, emin, emax, etr, plasma_np, delta, nelectron, bmag, asize):
+    j1 = gyro_utils.convertEminToJ1(emin)
+    j2 = gyro_utils.convertEmaxToJ2(emax)
     nf = 200
     fmin = 1.0e9
     fmax = 1e12
