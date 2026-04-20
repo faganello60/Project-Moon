@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsPanel = document.getElementById('resultsPanel');
     const resultImage = document.getElementById('resultImage');
     const resultChartCanvas = document.getElementById('resultChart');
+    const resultViewButtons = document.querySelectorAll('.view-toggle-btn');
+    const resultViewPanels = document.querySelectorAll('[data-result-view]');
     let spectrumChart = null;
+    let activeResultView = 'chart';
     
     // JSON Import/Export Elements
     const importJsonBtn = document.getElementById('importJsonBtn');
@@ -25,6 +28,68 @@ document.addEventListener('DOMContentLoaded', () => {
         return Number.isNaN(parsed) ? null : parsed;
     }
 
+    function formatScientificInput(value) {
+        const numericValue = Number(value);
+        if (!Number.isFinite(numericValue) || numericValue === 0) return value;
+
+        return numericValue.toExponential();
+    }
+
+    function stringifySettingsJson(data) {
+        return JSON.stringify(data, (key, value) => {
+            if ((key === 'height' || key === 'np') && Number.isFinite(value) && value !== 0) {
+                return `__SCIENTIFIC_NUMBER__${value.toExponential()}__`;
+            }
+
+            return value;
+        }, 2).replace(/"__SCIENTIFIC_NUMBER__([^"]+)__"/g, '$1');
+    }
+
+    function toSuperscript(value) {
+        const superscriptDigits = {
+            '-': '\u207B',
+            0: '\u2070',
+            1: '\u00B9',
+            2: '\u00B2',
+            3: '\u00B3',
+            4: '\u2074',
+            5: '\u2075',
+            6: '\u2076',
+            7: '\u2077',
+            8: '\u2078',
+            9: '\u2079'
+        };
+
+        return String(value).split('').map(char => superscriptDigits[char] ?? char).join('');
+    }
+
+    function formatLogPowerTick(value) {
+        const numericValue = Number(value);
+        if (numericValue <= 0) return '';
+
+        const exponent = Math.log10(numericValue);
+        const roundedExponent = Math.round(exponent);
+        if (Math.abs(exponent - roundedExponent) > 1e-8) return '';
+
+        return `10${toSuperscript(roundedExponent)}`;
+    }
+
+    function updateResultView(view) {
+        activeResultView = view;
+
+        resultViewButtons.forEach(button => {
+            button.classList.toggle('active', button.dataset.view === view);
+        });
+
+        resultViewPanels.forEach(panel => {
+            panel.classList.toggle('hidden', panel.dataset.resultView !== view);
+        });
+
+        if (view === 'chart' && spectrumChart) {
+            spectrumChart.resize();
+        }
+    }
+
     function getSelectedParam() {
         return document.querySelector('input[name="study_param"]:checked').value;
     }
@@ -33,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             viewAngle: parseNumber(document.getElementById('viewAngle').value),
             height: parseNumber(document.getElementById('height').value),
-            j1: parseInt(document.getElementById('j1').value, 10),
-            j2: parseInt(document.getElementById('j2').value, 10),
+            emin: parseNumber(document.getElementById('emin').value),
+            emax: parseNumber(document.getElementById('emax').value),
             etr: parseNumber(document.getElementById('etr').value),
             np: parseNumber(document.getElementById('np').value),
             study_param: getSelectedParam(),
@@ -47,11 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applySettings(data) {
         if (data.viewAngle !== undefined) document.getElementById('viewAngle').value = data.viewAngle;
-        if (data.height !== undefined) document.getElementById('height').value = data.height;
-        if (data.j1 !== undefined) document.getElementById('j1').value = data.j1;
-        if (data.j2 !== undefined) document.getElementById('j2').value = data.j2;
+        if (data.height !== undefined) document.getElementById('height').value = formatScientificInput(data.height);
+        const importedEmin = data.emin ?? data.Emin;
+        const importedEmax = data.emax ?? data.Emax;
+        if (importedEmin !== undefined) document.getElementById('emin').value = importedEmin;
+        if (importedEmax !== undefined) document.getElementById('emax').value = importedEmax;
         if (data.etr !== undefined) document.getElementById('etr').value = data.etr;
-        if (data.np !== undefined) document.getElementById('np').value = data.np;
+        if (data.np !== undefined) document.getElementById('np').value = formatScientificInput(data.np);
 
         const selectedParam = data.study_param || getSelectedParam();
         const selectedRadio = document.querySelector(`input[name="study_param"][value="${selectedParam}"]`);
@@ -73,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function downloadJsonFile(data, filename) {
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const blob = new Blob([stringifySettingsJson(data)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -123,6 +190,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add event listeners to radio buttons
     studyParams.forEach(radio => {
         radio.addEventListener('change', updateInputVisibility);
+    });
+
+    resultViewButtons.forEach(button => {
+        button.addEventListener('click', () => updateResultView(button.dataset.view));
     });
 
     // JSON Export Logic
@@ -201,8 +272,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = {
                 viewAngle: parseNumber(document.getElementById('viewAngle').value),
                 height: parseNumber(document.getElementById('height').value),
-                j1: parseInt(document.getElementById('j1').value, 10),
-                j2: parseInt(document.getElementById('j2').value, 10),
+                emin: parseNumber(document.getElementById('emin').value),
+                emax: parseNumber(document.getElementById('emax').value),
                 etr: parseNumber(document.getElementById('etr').value),
                 np: parseNumber(document.getElementById('np').value),
                 delta: getParamValues('delta'),
@@ -245,6 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resultImage.src = `data:image/png;base64,${data.image}`;
         }
 
+        updateResultView(activeResultView);
         renderSpectrumChart(data.bins, data.flux_results);
         
         resultsPanel.scrollIntoView({ behavior: 'smooth' });
@@ -346,9 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ticks: {
                             color: '#e0e0e0',
                             callback(value) {
-                                const numericValue = Number(value);
-                                const exponent = Math.log10(numericValue);
-                                return Number.isInteger(exponent) ? numericValue.toExponential(0) : '';
+                                return formatLogPowerTick(value);
                             }
                         },
                         grid: {
@@ -365,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ticks: {
                             color: '#e0e0e0',
                             callback(value) {
-                                return Number(value).toExponential(2);
+                                return formatLogPowerTick(value);
                             }
                         },
                         grid: {

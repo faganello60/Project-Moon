@@ -312,6 +312,36 @@ input:checked + .slider.round:before {
     justify-content: flex-end;
 }
 
+.view-toggle {
+    align-self: center;
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+}
+
+.view-toggle-btn {
+    min-width: 130px;
+    padding: 0.7rem 1.1rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--moon-light);
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.view-toggle-btn.active {
+    background: var(--glow-blue);
+    color: #001018;
+    box-shadow: 0 0 16px rgba(0, 210, 255, 0.28);
+}
+
 #runBtn, #runBtnPython {
     flex: 1;
     padding: 1.2rem;
@@ -352,7 +382,7 @@ input:checked + .slider.round:before {
 .chart-container {
     background: rgba(0, 0, 0, 0.5);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.25rem;
     text-align: center;
 }
 
@@ -368,12 +398,14 @@ input:checked + .slider.round:before {
 
 .chart-container--interactive canvas {
     width: 100% !important;
-    height: 380px !important;
+    height: clamp(460px, 58vh, 680px) !important;
     display: block;
 }
 
 .chart-container img {
+    width: 100%;
     max-width: 100%;
+    height: auto;
     border-radius: 4px;
 }
 
@@ -497,5 +529,18 @@ input:checked + .slider.round:before {
 
     .results-actions .json-btn {
         flex: 1;
+    }
+
+    .view-toggle {
+        align-self: stretch;
+    }
+
+    .view-toggle-btn {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .chart-container--interactive canvas {
+        height: 360px !important;
     }
 }
