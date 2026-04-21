@@ -2,15 +2,17 @@ from lmfit import Parameters, Model
 import numpy as np
 import matplotlib.pyplot as plt
 from gyro import gyroPython as gyro  
+from gyro import gyro_utils
 
 import io
 import base64
 import json
 
-def run_gsync(freq, sfu, view_angle, height, j1, j2, etr, plasma_np, params, prefix):
+def run_gsync(freq, sfu, view_angle, height, emin, emax, etr, plasma_np, params, prefix):
     xdata = freq
     ydata = sfu
-
+    j1 = gyro_utils.convertEminToJ1(emin)
+    j2 = gyro_utils.convertEmaxToJ2(emax)
     # Fixed parameters
     #
     #     viewangle     viewing angle (angle between B and the line of sight) [deg]
