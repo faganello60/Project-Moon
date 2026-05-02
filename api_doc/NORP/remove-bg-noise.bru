@@ -1,0 +1,26 @@
+meta {
+  name: remove-bg-noise
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://0.0.0.0:8000/norp/analyze-range
+  body: multipartForm
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+body:multipart-form {
+  file: @file(/Users/faganello/Documents/Project Moon/examples/norp020531.fits.gz)
+  start_time: 1022802743000
+  end_time: 1022805461000
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
