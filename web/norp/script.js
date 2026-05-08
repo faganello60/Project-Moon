@@ -28,6 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const preFlareStartInput = document.getElementById('preFlareStartInput');
     const preFlareEndInput = document.getElementById('preFlareEndInput');
+    const startFlareInput = document.getElementById('startFlareInput');
+    const endFlareInput = document.getElementById('endFlareInput');
     const timeStepButtons = Array.from(document.querySelectorAll('.time-step-btn'));
     const removeBackgroundBtn = document.getElementById('removeBackgroundBtn');
     const cutRangeBar = document.getElementById('cutRangeBar');
@@ -37,9 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const fullChartEl = document.getElementById('fullNorpChart');
     const rangeChartStage = document.getElementById('rangeChartStage');
     const rangeChartEl = document.getElementById('rangeNorpChart');
+    const backgroundSubtractedChartStage = document.getElementById('backgroundSubtractedChartStage');
     const backgroundSubtractedChartEl = document.getElementById('backgroundSubtractedChart');
     const startPreFlareHandle = document.getElementById('startPreFlareHandle');
     const endPreFlareHandle = document.getElementById('endPreFlareHandle');
+    const startFlareHandle = document.getElementById('startFlareHandle');
+    const endFlareHandle = document.getElementById('endFlareHandle');
 
     let selectedFile = null;
     let fullChart = null;
@@ -47,9 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let backgroundSubtractedChart = null;
     let lastFullLightCurves = null;
     let lastRangeLightCurves = null;
+    let lastBackgroundSubtractedLightCurves = null;
     let currentVisibleRange = null;
     let selectedBackgroundRange = null;
+    let selectedFlareRange = null;
     let draggingBoundary = null;
+    let draggingFlareBoundary = null;
     let timeStepHoldTimeout = null;
     let timeStepHoldInterval = null;
 
@@ -121,8 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetUiState() {
         lastFullLightCurves = null;
         lastRangeLightCurves = null;
+        lastBackgroundSubtractedLightCurves = null;
         currentVisibleRange = null;
         selectedBackgroundRange = null;
+        selectedFlareRange = null;
         destroyFullChart();
         destroyRangeChart();
         destroyBackgroundSubtractedChart();
@@ -133,10 +143,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setBackgroundSubtractedVisibility(false);
         preFlareStartInput.value = '';
         preFlareEndInput.value = '';
+        startFlareInput.value = '';
+        endFlareInput.value = '';
         selectionHint.textContent = 'Enter the pre-flare interval shown on the chart.';
         backgroundAveragesSummary.innerHTML = '';
         removeBackgroundBtn.disabled = true;
         cutRangeBtn.disabled = true;
+        syncFlareSelectionHandles();
     }
 
     function setSelectedFile(file) {
@@ -402,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderBackgroundSubtractedChart(lightCurves) {
         destroyBackgroundSubtractedChart();
+        lastBackgroundSubtractedLightCurves = lightCurves;
         backgroundSubtractedChart = echarts.init(backgroundSubtractedChartEl, null, {
             renderer: 'canvas',
             useDirtyRect: true,
@@ -410,6 +424,8 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundSubtractedChart.setOption(
             buildChartOption(lightCurves, buildLineDatasets(lightCurves), backgroundSubtractedHint, true),
         );
+        backgroundSubtractedChart.on('datazoom', () => syncFlareSelectionToVisibleRange());
+        syncFlareSelectionToVisibleRange();
     }
 
     function renderBackgroundAverages(backgroundAverages) {
@@ -477,6 +493,29 @@ document.addEventListener('DOMContentLoaded', () => {
         cutRangeBtn.disabled = !selectedFile || !lastFullLightCurves || !currentVisibleRange;
     }
 
+    function getChartVisibleRange(chartInstance, lightCurves) {
+        if (!chartInstance || !lightCurves) {
+            return null;
+        }
+
+        const fullRange = getFullTimeRange(lightCurves);
+        const chartOptions = chartInstance.getOption();
+        const zoomConfig = chartOptions?.dataZoom?.[0];
+
+        if (!fullRange || !zoomConfig) {
+            return fullRange;
+        }
+
+        const startPercent = Number.isFinite(zoomConfig.start) ? zoomConfig.start : 0;
+        const endPercent = Number.isFinite(zoomConfig.end) ? zoomConfig.end : 100;
+        const span = fullRange.end - fullRange.start;
+
+        return normalizeRange(
+            fullRange.start + (span * startPercent) / 100,
+            fullRange.start + (span * endPercent) / 100,
+        );
+    }
+
     function updateSelectionHint() {
         if (!selectedBackgroundRange) {
             selectionHint.textContent = 'Enter the pre-flare interval shown on the chart.';
@@ -501,6 +540,17 @@ document.addEventListener('DOMContentLoaded', () => {
         preFlareEndInput.value = toDatetimeLocalValue(range.end);
     }
 
+    function syncFlareInputs(range) {
+        if (!range) {
+            startFlareInput.value = '';
+            endFlareInput.value = '';
+            return;
+        }
+
+        startFlareInput.value = toDatetimeLocalValue(range.start);
+        endFlareInput.value = toDatetimeLocalValue(range.end);
+    }
+
     function clearBackgroundSelection() {
         selectedBackgroundRange = null;
         syncBackgroundInputs(null);
@@ -511,6 +561,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function clampTimestampToRangeChart(timestamp) {
         const fullRange = getFullTimeRange(lastRangeLightCurves);
+        if (!fullRange || !Number.isFinite(timestamp)) {
+            return timestamp;
+        }
+
+        return Math.min(Math.max(timestamp, fullRange.start), fullRange.end);
+    }
+
+    function clampTimestampToLightCurves(lightCurves, timestamp) {
+        const fullRange = getFullTimeRange(lightCurves);
         if (!fullRange || !Number.isFinite(timestamp)) {
             return timestamp;
         }
@@ -540,12 +599,49 @@ document.addEventListener('DOMContentLoaded', () => {
         endPreFlareHandle.classList.remove('hidden');
     }
 
+    function syncFlareSelectionHandles() {
+        if (!backgroundSubtractedChart || !selectedFlareRange) {
+            startFlareHandle.classList.add('hidden');
+            endFlareHandle.classList.add('hidden');
+            return;
+        }
+
+        const startPixel = backgroundSubtractedChart.convertToPixel({ xAxisIndex: 0 }, selectedFlareRange.start);
+        const endPixel = backgroundSubtractedChart.convertToPixel({ xAxisIndex: 0 }, selectedFlareRange.end);
+
+        if (!Number.isFinite(startPixel) || !Number.isFinite(endPixel)) {
+            startFlareHandle.classList.add('hidden');
+            endFlareHandle.classList.add('hidden');
+            return;
+        }
+
+        startFlareHandle.style.left = `${startPixel}px`;
+        endFlareHandle.style.left = `${endPixel}px`;
+        startFlareHandle.classList.remove('hidden');
+        endFlareHandle.classList.remove('hidden');
+    }
+
+    function syncFlareSelectionToVisibleRange() {
+        selectedFlareRange = getChartVisibleRange(
+            backgroundSubtractedChart,
+            lastBackgroundSubtractedLightCurves,
+        );
+        syncFlareInputs(selectedFlareRange);
+        syncFlareSelectionHandles();
+    }
+
     function setBackgroundSelection(start, end) {
         selectedBackgroundRange = normalizeRange(start, end);
         syncBackgroundInputs(selectedBackgroundRange);
         updateSelectionHint();
         updateBackgroundButtonState();
         syncSelectionHandles();
+    }
+
+    function setFlareSelection(start, end) {
+        selectedFlareRange = normalizeRange(start, end);
+        syncFlareInputs(selectedFlareRange);
+        syncFlareSelectionHandles();
     }
 
     function updateDraggedBoundary(clientX) {
@@ -570,6 +666,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setBackgroundSelection(selectedBackgroundRange.start, timestamp);
+    }
+
+    function updateDraggedFlareBoundary(clientX) {
+        if (!backgroundSubtractedChart || !selectedFlareRange || !draggingFlareBoundary) {
+            return;
+        }
+
+        const rect = backgroundSubtractedChartStage.getBoundingClientRect();
+        const pixelX = clientX - rect.left;
+        const pixelY = Math.max(44, Math.min(backgroundSubtractedChart.getHeight() - 52, Math.round(backgroundSubtractedChart.getHeight() / 2)));
+        const timestamp = clampTimestampToLightCurves(
+            lastBackgroundSubtractedLightCurves,
+            backgroundSubtractedChart.convertFromPixel({ xAxisIndex: 0 }, [pixelX, pixelY]),
+        );
+
+        if (!Number.isFinite(timestamp)) {
+            return;
+        }
+
+        if (draggingFlareBoundary === 'start') {
+            setFlareSelection(timestamp, selectedFlareRange.end);
+            return;
+        }
+
+        setFlareSelection(selectedFlareRange.start, timestamp);
     }
 
     function toDatetimeLocalValue(timestamp) {
@@ -608,6 +729,18 @@ document.addEventListener('DOMContentLoaded', () => {
         setBackgroundSelection(start, end);
     }
 
+    function initializeDefaultFlareRange(lightCurves) {
+        const fullRange = getFullTimeRange(lightCurves);
+        if (!fullRange) {
+            selectedFlareRange = null;
+            syncFlareInputs(null);
+            syncFlareSelectionHandles();
+            return;
+        }
+
+        setFlareSelection(fullRange.start, fullRange.end);
+    }
+
     function handleBackgroundInputChange() {
         const start = parseDatetimeInput(preFlareStartInput.value);
         const end = parseDatetimeInput(preFlareEndInput.value);
@@ -626,7 +759,34 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function stepBackgroundInput(input, direction) {
+    function handleFlareInputChange() {
+        const start = parseDatetimeInput(startFlareInput.value);
+        const end = parseDatetimeInput(endFlareInput.value);
+
+        if (!Number.isFinite(start) || !Number.isFinite(end)) {
+            selectedFlareRange = null;
+            syncFlareSelectionHandles();
+            return;
+        }
+
+        setFlareSelection(
+            clampTimestampToLightCurves(lastBackgroundSubtractedLightCurves, start),
+            clampTimestampToLightCurves(lastBackgroundSubtractedLightCurves, end),
+        );
+    }
+
+    function handleTimeInputStep(input) {
+        if (input === preFlareStartInput || input === preFlareEndInput) {
+            handleBackgroundInputChange();
+            return;
+        }
+
+        if (input === startFlareInput || input === endFlareInput) {
+            handleFlareInputChange();
+        }
+    }
+
+    function stepTimeInput(input, direction) {
         const currentTimestamp = parseDatetimeInput(input.value);
         if (!Number.isFinite(currentTimestamp)) {
             return;
@@ -634,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const steppedTimestamp = currentTimestamp + (direction * 1000);
         input.value = toDatetimeLocalValue(steppedTimestamp);
-        handleBackgroundInputChange();
+        handleTimeInputStep(input);
     }
 
     function clearTimeStepHold() {
@@ -651,10 +811,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startTimeStepHold(input, direction) {
         clearTimeStepHold();
-        stepBackgroundInput(input, direction);
+        stepTimeInput(input, direction);
         timeStepHoldTimeout = window.setTimeout(() => {
             timeStepHoldInterval = window.setInterval(() => {
-                stepBackgroundInput(input, direction);
+                stepTimeInput(input, direction);
             }, 100);
         }, 350);
     }
@@ -790,6 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setBackgroundSubtractedVisibility(true);
             renderBackgroundAverages(payload.light_curves?.background_averages);
             renderBackgroundSubtractedChart(payload.light_curves || { time: [], frequencies: [] });
+            initializeDefaultFlareRange(payload.light_curves || { time: [], frequencies: [] });
         } catch (error) {
             showError(error.message || 'Unable to remove background noise.');
         } finally {
@@ -806,6 +967,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cutRangeBtn.addEventListener('click', cutVisibleRange);
     preFlareStartInput.addEventListener('change', handleBackgroundInputChange);
     preFlareEndInput.addEventListener('change', handleBackgroundInputChange);
+    startFlareInput.addEventListener('change', handleFlareInputChange);
+    endFlareInput.addEventListener('change', handleFlareInputChange);
     timeStepButtons.forEach(button => {
         const targetId = button.dataset.target;
         const direction = Number(button.dataset.direction || 0);
@@ -881,17 +1044,31 @@ document.addEventListener('DOMContentLoaded', () => {
         draggingBoundary = 'end';
     });
 
+    startFlareHandle.addEventListener('mousedown', event => {
+        event.preventDefault();
+        draggingFlareBoundary = 'start';
+    });
+
+    endFlareHandle.addEventListener('mousedown', event => {
+        event.preventDefault();
+        draggingFlareBoundary = 'end';
+    });
+
     document.addEventListener('mousemove', event => {
-        if (!draggingBoundary) {
-            return;
+        if (draggingBoundary) {
+            event.preventDefault();
+            updateDraggedBoundary(event.clientX);
         }
 
-        event.preventDefault();
-        updateDraggedBoundary(event.clientX);
+        if (draggingFlareBoundary) {
+            event.preventDefault();
+            updateDraggedFlareBoundary(event.clientX);
+        }
     });
 
     document.addEventListener('mouseup', () => {
         draggingBoundary = null;
+        draggingFlareBoundary = null;
     });
 
     window.addEventListener('resize', () => {
@@ -899,6 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rangeChart?.resize();
         backgroundSubtractedChart?.resize();
         syncSelectionHandles();
+        syncFlareSelectionHandles();
     });
 
     analyzeBtn.disabled = true;

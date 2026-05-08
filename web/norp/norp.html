@@ -21,8 +21,12 @@
         <main>
             <section class="control-panel">
                 <div class="panel-header">
-                    <h2>Upload Observation</h2>
+                    <h2>Upload Data</h2>
                 </div>
+                <p class="panel-link-row">
+                    Download NoRP FITS files:
+                    <a href="https://solar.nro.nao.ac.jp/norp/fits/" target="_blank" rel="noopener noreferrer">solar.nro.nao.ac.jp/norp/fits/</a>
+                </p>
 
                 <div class="upload-layout">
                     <button type="button" id="selectFileBtn" class="json-btn upload-button">Select FITS File</button>
@@ -49,7 +53,7 @@
 
                 <div class="results-grid">
                     <div class="summary-card">
-                        <span class="summary-label">Observation Day</span>
+                        <span class="summary-label">Data</span>
                         <strong id="obsDayValue">-</strong>
                     </div>
                     <div class="summary-card">
@@ -125,16 +129,44 @@
                         </div>
                         <button type="button" id="removeBackgroundBtn" class="json-btn remove-background-btn">Remove Noise Background</button>
                     </div>
-                    <div id="backgroundSubtractedPanel" class="background-subtracted-panel hidden">
-                        <div class="chart-card-header">
-                            <div>
-                                <h3>Light Cuvres with background subtracted</h3>
-                                <p id="backgroundSubtractedHint">Average background noise values for each frequency</p>
-                            </div>
-                        </div>
-                        <div id="backgroundAveragesSummary" class="background-averages-summary"></div>
-                        <div id="backgroundSubtractedChart" aria-label="NoRP background subtracted light curves chart" role="img"></div>
+                </div>
+            </section>
+
+            <section id="backgroundSubtractedPanel" class="control-panel background-subtracted-panel hidden">
+                <div class="panel-header background-subtracted-header">
+                    <div>
+                        <h2>Light Cuvres with background subtracted</h2>
+                        <p id="backgroundSubtractedHint">Select the start and end points of the flare.</p>
                     </div>
+                </div>
+                <p class="background-averages-label">Mean background noise value for each frequency</p>
+                <div id="backgroundAveragesSummary" class="background-averages-summary"></div>
+                <div id="backgroundSubtractedChartStage" class="chart-stage">
+                    <div id="backgroundSubtractedChart" aria-label="NoRP background subtracted light curves chart" role="img"></div>
+                    <div id="startFlareHandle" class="range-handle hidden" aria-hidden="true">
+                        <span>Start Flare</span>
+                    </div>
+                    <div id="endFlareHandle" class="range-handle hidden" aria-hidden="true">
+                        <span>End Flare</span>
+                    </div>
+                </div>
+                <div class="flare-fields">
+                    <label class="time-field" for="startFlareInput">
+                        <span>Start Flare</span>
+                        <div class="time-input-row">
+                            <button type="button" class="time-step-btn" data-target="startFlareInput" data-direction="-1" aria-label="Decrease flare start time">-</button>
+                            <input type="datetime-local" id="startFlareInput" step="1">
+                            <button type="button" class="time-step-btn" data-target="startFlareInput" data-direction="1" aria-label="Increase flare start time">+</button>
+                        </div>
+                    </label>
+                    <label class="time-field" for="endFlareInput">
+                        <span>End Flare</span>
+                        <div class="time-input-row">
+                            <button type="button" class="time-step-btn" data-target="endFlareInput" data-direction="-1" aria-label="Decrease flare end time">-</button>
+                            <input type="datetime-local" id="endFlareInput" step="1">
+                            <button type="button" class="time-step-btn" data-target="endFlareInput" data-direction="1" aria-label="Increase flare end time">+</button>
+                        </div>
+                    </label>
                 </div>
             </section>
         </main>
@@ -142,7 +174,7 @@
 
     <div id="loader" class="loader hidden">
         <div class="moon"></div>
-        <p>Analyzing observation...</p>
+        <p>loading</p>
     </div>
 
     <div class="footer">
