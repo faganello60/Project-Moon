@@ -168,6 +168,51 @@
                         </div>
                     </label>
                 </div>
+                <button type="button" id="calculateFlarePeakBtn" class="json-btn flare-peak-btn">Calculate Flare Peak</button>
+            </section>
+
+            <section id="spectrumPanel" class="control-panel spectrum-panel hidden">
+                <div class="panel-header">
+                    <h2>Spectrum: Flux Density (SFU) X Frequency (Hz)</h2>
+                </div>
+                <div id="flarePeakResult" class="flare-peak-result">
+                    <div class="flare-peak-summary">
+                        <div class="background-average-card">
+                            <span>Flare Start</span>
+                            <strong id="flarePeakStartValue">-</strong>
+                        </div>
+                        <div class="background-average-card">
+                            <span>Flare End</span>
+                            <strong id="flarePeakEndValue">-</strong>
+                        </div>
+                    </div>
+                    <div class="spectrum-view-switcher" role="group" aria-label="Spectrum view">
+                        <button type="button" id="spectrumGraphViewBtn" class="spectrum-view-btn is-active">Graph</button>
+                        <button type="button" id="spectrumImageViewBtn" class="spectrum-view-btn">Image</button>
+                    </div>
+                    <div id="flarePeakChart" class="spectrum-view" aria-label="NoRP flare peak by frequency chart" role="img"></div>
+                    <img id="flarePeakImage" class="spectrum-view spectrum-image hidden" alt="NoRP flare peak spectrum image">
+                    <div class="spectrum-table-wrap">
+                        <table class="spectrum-table">
+                            <thead>
+                                <tr>
+                                    <th>Frequency</th>
+                                    <th>Flux</th>
+                                    <th>Keep Frequency</th>
+                                </tr>
+                            </thead>
+                            <tbody id="spectrumTableBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" id="removeFrequenciesBtn" class="json-btn remove-frequencies-btn">Remove Frequencies</button>
+                </div>
+            </section>
+
+            <section id="finalResultsPanel" class="control-panel final-results-panel hidden">
+                <div class="panel-header">
+                    <h2>Final Results</h2>
+                </div>
+                <img id="finalSpectrumImage" class="spectrum-image" alt="Final NoRP spectrum image">
             </section>
         </main>
     </div>

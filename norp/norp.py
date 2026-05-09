@@ -1,7 +1,12 @@
+import base64
+from io import BytesIO
 from datetime import datetime, timezone
 from pathlib import Path
 
 import astropy.io.fits as iofits
+import matplotlib
+
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.dates import DateFormatter
@@ -19,6 +24,7 @@ FREQUENCY_COLUMNS = {
     '35GHz': ('FREQ6', 'CalI_35GHz', 'DVal_35GHz'),
     '80GHz': ('FREQ7', 'CalI_80GHz', 'DVal_80GHz'),
   }
+FREQUENCY_HZ_BY_NAME = dict(zip(FREQUENCY_COLUMNS.keys(), FREQUENCIES_HZ))
 FREQUENCY_READERS = {
     '1GHz': utils.norp_rd_1GHzI,
     '2GHz': utils.norp_rd_2GHzI,
@@ -46,6 +52,54 @@ def get_max_sfu(filename):
     return {
         freq: max(FREQUENCY_READERS[freq](filename))
         for freq in frequencies
+    }
+
+def get_spectrum_graph_base64(flux, frequency, title='NoRP Spectrum'):
+    spectrum = plt.figure(figsize=(8, 6))
+    spectrum.add_subplot()
+    plt.title(title)
+    plt.plot(frequency, flux, marker='.', linestyle='None', markersize=10)
+    plt.xlabel('Frequency (Hz)', fontsize=12)
+    plt.ylabel('Flux Density (SFU)', fontsize=12)
+    plt.xlim(0.5e9, 1e11)
+    plt.ylim(0.1, 10000)
+    plt.xscale('log')
+    plt.yscale('log')
+
+    buffer = BytesIO()
+    spectrum.savefig(buffer, format='png', bbox_inches='tight')
+    plt.close(spectrum)
+    buffer.seek(0)
+
+    return base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+def remove_spectrum_frequencies(filename, frequencies, fluxes, frequencies_to_remove):
+    if len(frequencies) != len(fluxes):
+        raise ValueError('frequencies and fluxes must have the same length.')
+
+    remove_set = set(frequencies_to_remove)
+
+    filtered_frequencies = []
+    filtered_fluxes = []
+
+    for frequency, flux in zip(frequencies, fluxes):
+        if frequency not in FREQUENCY_HZ_BY_NAME:
+            raise ValueError(f'Unknown frequency: {frequency}')
+
+        if frequency in remove_set:
+            continue
+
+        filtered_frequencies.append(FREQUENCY_HZ_BY_NAME[frequency])
+        filtered_fluxes.append(float(flux))
+
+    return {
+        'frequencies': filtered_frequencies,
+        'fluxes': filtered_fluxes,
+        'spectrum_image_base64': get_spectrum_graph_base64(
+            filtered_fluxes,
+            filtered_frequencies,
+            f'NoRP Spectrum {utils.norp_rd_obsDay(filename)}',
+        ),
     }
 
 def get_full_light_curves(filename, frequency=None):
@@ -201,4 +255,68 @@ def remove_background_noise(filename, start_time, end_time, pre_flare_start, pre
         'background_averages': background_averages,
         'time': times[istart:iend],
         'frequencies': corrected_frequencies,
+    }
+
+def get_flare_peak(filename, flare_start, flare_end, background_averages):
+    flare_range_start = datetime.fromtimestamp(flare_start / 1000, tz=timezone.utc)
+    flare_range_end = datetime.fromtimestamp(flare_end / 1000, tz=timezone.utc)
+
+    with iofits.open(filename) as hdulist:
+        header = hdulist[0].header
+        data = hdulist[1].data
+
+        idlst = datetime(1979, 1, 1, tzinfo=timezone.utc)
+        times = [
+            datetime.fromtimestamp(tim_single + idlst.timestamp(), timezone.utc)
+            for tim_single in data['Time'][0]
+        ]
+
+        if not times:
+            raise ValueError('No time samples available in file.')
+        
+
+        ipeakmin = int(np.argmin([abs((sample - flare_range_start).total_seconds()) for sample in times]))
+        ipeakmax = int(np.argmin([abs((sample - flare_range_end).total_seconds()) for sample in times]))
+
+        if ipeakmin > ipeakmax:
+            ipeakmin, ipeakmax = ipeakmax, ipeakmin
+
+        ipeakmax = min(ipeakmax + 1, len(times))
+
+        if ipeakmin >= ipeakmax:
+            raise ValueError('Flare interval is empty.')
+
+        flare_peaks = {}
+        spectrum_flux = []
+        spectrum_frequency = []
+
+        for freq, (header_key, flux_key, dval_key) in FREQUENCY_COLUMNS.items():
+            if header_key not in header:
+                continue
+
+            if freq not in background_averages:
+                continue
+
+            series = data[flux_key][0] * data[dval_key][0]
+            flare_slice = series[ipeakmin:ipeakmax]
+
+            if len(flare_slice) == 0:
+                continue
+
+            flare_mean = float(np.mean(flare_slice))
+            background = float(background_averages[freq])
+            peak = flare_mean - background
+            flare_peaks[freq] = peak
+            spectrum_flux.append(peak)
+            spectrum_frequency.append(FREQUENCY_HZ_BY_NAME[freq])
+
+    return {
+        'flare_start_time': times[ipeakmin].isoformat(),
+        'flare_end_time': times[ipeakmax - 1].isoformat(),
+        'flare_peaks': flare_peaks,
+        'spectrum_image_base64': get_spectrum_graph_base64(
+            spectrum_flux,
+            spectrum_frequency,
+            f'NoRP Spectrum {utils.norp_rd_obsDay(filename)}',
+        ),
     }

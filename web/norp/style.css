@@ -482,11 +482,111 @@ button:disabled {
     position: relative;
 }
 
+.spectrum-panel {
+    position: relative;
+}
+
+.final-results-panel {
+    position: relative;
+}
+
 .flare-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.85rem;
     margin-top: 1rem;
+}
+
+.flare-peak-btn {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.remove-frequencies-btn {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.flare-peak-result {
+    margin-top: 0;
+}
+
+.flare-peak-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.spectrum-view-switcher {
+    display: inline-flex;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    padding: 0.25rem;
+    border: 1px solid rgba(0, 210, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(2, 8, 16, 0.72);
+}
+
+.spectrum-view-btn {
+    min-height: 36px;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(224, 224, 224, 0.78);
+    box-shadow: none;
+    font-size: 0.85rem;
+}
+
+.spectrum-view-btn.is-active {
+    border-color: rgba(0, 210, 255, 0.36);
+    background: rgba(0, 210, 255, 0.12);
+    color: #fff;
+}
+
+.spectrum-image {
+    width: 100%;
+    max-height: 420px;
+    object-fit: contain;
+    border: 1px solid rgba(0, 210, 255, 0.14);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.spectrum-table-wrap {
+    margin-top: 1rem;
+    overflow-x: auto;
+}
+
+.spectrum-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 520px;
+}
+
+.spectrum-table th,
+.spectrum-table td {
+    padding: 0.72rem 0.8rem;
+    border-bottom: 1px solid rgba(0, 210, 255, 0.12);
+    text-align: left;
+}
+
+.spectrum-table th {
+    color: rgba(224, 224, 224, 0.68);
+    font-size: 0.76rem;
+    letter-spacing: 0.08rem;
+    text-transform: uppercase;
+}
+
+.spectrum-table td {
+    color: #fff;
+}
+
+.spectrum-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--glow-blue);
 }
 
 .background-averages-summary {
@@ -534,6 +634,13 @@ button:disabled {
     width: 100%;
     height: 420px;
     max-height: 420px;
+}
+
+#flarePeakChart {
+    display: block;
+    width: 100%;
+    height: 360px;
+    max-height: 360px;
 }
 
 .hidden {
@@ -627,13 +734,18 @@ button:disabled {
         grid-template-columns: 1fr;
     }
 
+    .flare-peak-summary {
+        grid-template-columns: 1fr;
+    }
+
     #fullNorpChart,
     #rangeNorpChart {
         height: 300px;
         max-height: 300px;
     }
 
-    #backgroundSubtractedChart {
+    #backgroundSubtractedChart,
+    #flarePeakChart {
         height: 300px;
         max-height: 300px;
     }

@@ -25,6 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const backgroundSubtractedPanel = document.getElementById('backgroundSubtractedPanel');
     const backgroundSubtractedHint = document.getElementById('backgroundSubtractedHint');
     const backgroundAveragesSummary = document.getElementById('backgroundAveragesSummary');
+    const spectrumPanel = document.getElementById('spectrumPanel');
+    const flarePeakStartValue = document.getElementById('flarePeakStartValue');
+    const flarePeakEndValue = document.getElementById('flarePeakEndValue');
+    const spectrumGraphViewBtn = document.getElementById('spectrumGraphViewBtn');
+    const spectrumImageViewBtn = document.getElementById('spectrumImageViewBtn');
+    const spectrumTableBody = document.getElementById('spectrumTableBody');
+    const finalResultsPanel = document.getElementById('finalResultsPanel');
+    const finalSpectrumImage = document.getElementById('finalSpectrumImage');
 
     const preFlareStartInput = document.getElementById('preFlareStartInput');
     const preFlareEndInput = document.getElementById('preFlareEndInput');
@@ -32,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const endFlareInput = document.getElementById('endFlareInput');
     const timeStepButtons = Array.from(document.querySelectorAll('.time-step-btn'));
     const removeBackgroundBtn = document.getElementById('removeBackgroundBtn');
+    const calculateFlarePeakBtn = document.getElementById('calculateFlarePeakBtn');
+    const removeFrequenciesBtn = document.getElementById('removeFrequenciesBtn');
     const cutRangeBar = document.getElementById('cutRangeBar');
     const cutRangeBtn = document.getElementById('cutRangeBtn');
     const fullResetZoomBtn = document.getElementById('fullResetZoomBtn');
@@ -41,6 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const rangeChartEl = document.getElementById('rangeNorpChart');
     const backgroundSubtractedChartStage = document.getElementById('backgroundSubtractedChartStage');
     const backgroundSubtractedChartEl = document.getElementById('backgroundSubtractedChart');
+    const flarePeakChartEl = document.getElementById('flarePeakChart');
+    const flarePeakImage = document.getElementById('flarePeakImage');
     const startPreFlareHandle = document.getElementById('startPreFlareHandle');
     const endPreFlareHandle = document.getElementById('endPreFlareHandle');
     const startFlareHandle = document.getElementById('startFlareHandle');
@@ -50,9 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let fullChart = null;
     let rangeChart = null;
     let backgroundSubtractedChart = null;
+    let flarePeakChart = null;
     let lastFullLightCurves = null;
     let lastRangeLightCurves = null;
     let lastBackgroundSubtractedLightCurves = null;
+    let lastBackgroundAverages = null;
     let currentVisibleRange = null;
     let selectedBackgroundRange = null;
     let selectedFlareRange = null;
@@ -81,12 +95,22 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundSubtractedPanel.classList.toggle('hidden', !isVisible);
     }
 
+    function setSpectrumVisibility(isVisible) {
+        spectrumPanel.classList.toggle('hidden', !isVisible);
+    }
+
+    function setFinalResultsVisibility(isVisible) {
+        finalResultsPanel.classList.toggle('hidden', !isVisible);
+    }
+
     function setLoading(isLoading) {
         loader.classList.toggle('hidden', !isLoading);
         analyzeBtn.disabled = isLoading || !selectedFile;
         selectFileBtn.disabled = isLoading;
         cutRangeBtn.disabled = isLoading || !selectedFile || !lastFullLightCurves;
         removeBackgroundBtn.disabled = isLoading || !selectedFile || !selectedBackgroundRange || !Number.isFinite(selectedBackgroundRange.end);
+        calculateFlarePeakBtn.disabled = isLoading || !selectedFile || !lastBackgroundAverages || !selectedFlareRange || !Number.isFinite(selectedFlareRange.end);
+        removeFrequenciesBtn.disabled = isLoading || !selectedFile || !spectrumTableBody.querySelector('tr');
         fullResetZoomBtn.disabled = isLoading || !selectedFile || !lastFullLightCurves;
     }
 
@@ -126,28 +150,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function destroyFlarePeakChart() {
+        if (flarePeakChart) {
+            flarePeakChart.dispose();
+            flarePeakChart = null;
+        }
+    }
+
     function resetUiState() {
         lastFullLightCurves = null;
         lastRangeLightCurves = null;
         lastBackgroundSubtractedLightCurves = null;
+        lastBackgroundAverages = null;
         currentVisibleRange = null;
         selectedBackgroundRange = null;
         selectedFlareRange = null;
         destroyFullChart();
         destroyRangeChart();
         destroyBackgroundSubtractedChart();
+        destroyFlarePeakChart();
         setFullChartVisibility(false);
         setRangeChartVisibility(false);
         setCutRangeVisibility(false);
         setBackgroundPanelVisibility(false);
         setBackgroundSubtractedVisibility(false);
+        setSpectrumVisibility(false);
+        setFinalResultsVisibility(false);
         preFlareStartInput.value = '';
         preFlareEndInput.value = '';
         startFlareInput.value = '';
         endFlareInput.value = '';
         selectionHint.textContent = 'Enter the pre-flare interval shown on the chart.';
         backgroundAveragesSummary.innerHTML = '';
+        spectrumTableBody.innerHTML = '';
+        flarePeakImage.removeAttribute('src');
+        finalSpectrumImage.removeAttribute('src');
+        flarePeakStartValue.textContent = '-';
+        flarePeakEndValue.textContent = '-';
         removeBackgroundBtn.disabled = true;
+        calculateFlarePeakBtn.disabled = true;
+        removeFrequenciesBtn.disabled = true;
         cutRangeBtn.disabled = true;
         syncFlareSelectionHandles();
     }
@@ -428,6 +470,197 @@ document.addEventListener('DOMContentLoaded', () => {
         syncFlareSelectionToVisibleRange();
     }
 
+    function buildSpectrumEntries(flarePeaks) {
+        return Object.entries(flarePeaks || {})
+            .map(([frequency, value]) => ({
+                frequency,
+                hz: parseFrequencyHz(frequency),
+                flux: Number(value),
+            }))
+            .filter(item => Number.isFinite(item.hz) && Number.isFinite(item.flux))
+            .sort((first, second) => first.hz - second.hz);
+    }
+
+    function buildFlarePeakChartOption(flarePeaks) {
+        const entries = buildSpectrumEntries(flarePeaks)
+            .filter(item => item.flux > 0);
+
+        return {
+            animation: false,
+            backgroundColor: 'transparent',
+            color: COLORS,
+            grid: {
+                left: 72,
+                right: 28,
+                top: 28,
+                bottom: 64,
+            },
+            tooltip: {
+                trigger: 'item',
+                confine: true,
+                backgroundColor: 'rgba(3, 8, 18, 0.94)',
+                borderColor: 'rgba(0, 210, 255, 0.3)',
+                textStyle: {
+                    color: '#f4f8ff',
+                },
+                formatter(params) {
+                    return `${params.value[2]}<br>Frequency: ${formatFrequencyHz(params.value[0])} Hz<br>Flux Density: ${Number(params.value[1]).toFixed(3)} SFU`;
+                },
+            },
+            xAxis: {
+                type: 'log',
+                name: 'Frequency (Hz)',
+                nameLocation: 'middle',
+                nameGap: 36,
+                min: 0.5e9,
+                max: 1e11,
+                logBase: 10,
+                axisLabel: {
+                    color: '#ccefff',
+                    formatter: value => formatFrequencyHz(value),
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: 'rgba(204, 239, 255, 0.35)',
+                    },
+                },
+            },
+            yAxis: {
+                type: 'log',
+                name: 'Flux Density (SFU)',
+                nameLocation: 'middle',
+                nameGap: 52,
+                min: 0.1,
+                max: 10000,
+                logBase: 10,
+                axisLabel: {
+                    color: '#ccefff',
+                },
+                axisLine: {
+                    lineStyle: {
+                        color: 'rgba(204, 239, 255, 0.35)',
+                    },
+                },
+                splitLine: {
+                    lineStyle: {
+                        color: 'rgba(0, 210, 255, 0.08)',
+                    },
+                },
+            },
+            series: [
+                {
+                    name: 'Flare Peak',
+                    type: 'scatter',
+                    symbol: 'circle',
+                    symbolSize: 11,
+                    data: entries.map((item, index) => ({
+                        value: [item.hz, item.flux, item.frequency],
+                        itemStyle: {
+                            color: COLORS[index % COLORS.length],
+                        },
+                    })),
+                },
+            ],
+        };
+    }
+
+    function setSpectrumView(view) {
+        const showGraph = view === 'graph';
+        flarePeakChartEl.classList.toggle('hidden', !showGraph);
+        flarePeakImage.classList.toggle('hidden', showGraph);
+        spectrumGraphViewBtn.classList.toggle('is-active', showGraph);
+        spectrumImageViewBtn.classList.toggle('is-active', !showGraph);
+
+        if (showGraph) {
+            window.requestAnimationFrame(() => flarePeakChart?.resize());
+        }
+    }
+
+    function renderSpectrumTable(flarePeaks) {
+        spectrumTableBody.innerHTML = '';
+
+        for (const item of buildSpectrumEntries(flarePeaks)) {
+            const row = document.createElement('tr');
+            row.dataset.frequency = item.frequency;
+            row.dataset.flux = String(item.flux);
+            row.innerHTML = `
+                <td>${item.frequency}</td>
+                <td>${item.flux.toFixed(3)} SFU</td>
+                <td><input type="checkbox" class="keep-frequency-checkbox" checked aria-label="Keep ${item.frequency} frequency"></td>
+            `;
+            spectrumTableBody.appendChild(row);
+        }
+
+        removeFrequenciesBtn.disabled = !spectrumTableBody.querySelector('tr');
+    }
+
+    function parseFrequencyHz(frequency) {
+        const match = String(frequency).trim().match(/^([\d.]+)\s*(GHz|MHz|kHz|Hz)$/i);
+        if (!match) {
+            return Number.NaN;
+        }
+
+        const value = Number(match[1]);
+        const unit = match[2].toLowerCase();
+        const multiplier = {
+            ghz: 1e9,
+            mhz: 1e6,
+            khz: 1e3,
+            hz: 1,
+        }[unit];
+
+        return value * multiplier;
+    }
+
+    function formatFrequencyHz(value) {
+        if (!Number.isFinite(value)) {
+            return '';
+        }
+
+        return value.toExponential(2);
+    }
+
+    function renderFlarePeakResult(result) {
+        const flarePeaks = result?.flare_peaks || {};
+
+        destroyFlarePeakChart();
+        flarePeakStartValue.textContent = result?.flare_start_time
+            ? formatUtcTimestamp(Date.parse(result.flare_start_time))
+            : '-';
+        flarePeakEndValue.textContent = result?.flare_end_time
+            ? formatUtcTimestamp(Date.parse(result.flare_end_time))
+            : '-';
+        setSpectrumVisibility(true);
+        renderSpectrumTable(flarePeaks);
+
+        if (result?.spectrum_image_base64) {
+            flarePeakImage.src = `data:image/png;base64,${result.spectrum_image_base64}`;
+        } else {
+            flarePeakImage.removeAttribute('src');
+        }
+
+        flarePeakChart = echarts.init(flarePeakChartEl, null, {
+            renderer: 'canvas',
+            useDirtyRect: true,
+        });
+        flarePeakChart.setOption(buildFlarePeakChartOption(flarePeaks));
+        setSpectrumView('graph');
+        setFinalResultsVisibility(false);
+        finalSpectrumImage.removeAttribute('src');
+    }
+
+    function clearFlarePeakResult() {
+        destroyFlarePeakChart();
+        setSpectrumVisibility(false);
+        setFinalResultsVisibility(false);
+        spectrumTableBody.innerHTML = '';
+        flarePeakImage.removeAttribute('src');
+        finalSpectrumImage.removeAttribute('src');
+        flarePeakStartValue.textContent = '-';
+        flarePeakEndValue.textContent = '-';
+        removeFrequenciesBtn.disabled = true;
+    }
+
     function renderBackgroundAverages(backgroundAverages) {
         backgroundAveragesSummary.innerHTML = '';
 
@@ -529,6 +762,10 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBackgroundBtn.disabled = !selectedFile || !selectedBackgroundRange || !Number.isFinite(selectedBackgroundRange.end);
     }
 
+    function updateFlarePeakButtonState() {
+        calculateFlarePeakBtn.disabled = !selectedFile || !lastBackgroundAverages || !selectedFlareRange || !Number.isFinite(selectedFlareRange.end);
+    }
+
     function syncBackgroundInputs(range) {
         if (!range) {
             preFlareStartInput.value = '';
@@ -628,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         syncFlareInputs(selectedFlareRange);
         syncFlareSelectionHandles();
+        updateFlarePeakButtonState();
     }
 
     function setBackgroundSelection(start, end) {
@@ -642,6 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFlareRange = normalizeRange(start, end);
         syncFlareInputs(selectedFlareRange);
         syncFlareSelectionHandles();
+        updateFlarePeakButtonState();
     }
 
     function updateDraggedBoundary(clientX) {
@@ -735,6 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedFlareRange = null;
             syncFlareInputs(null);
             syncFlareSelectionHandles();
+            updateFlarePeakButtonState();
             return;
         }
 
@@ -766,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Number.isFinite(start) || !Number.isFinite(end)) {
             selectedFlareRange = null;
             syncFlareSelectionHandles();
+            updateFlarePeakButtonState();
             return;
         }
 
@@ -948,11 +1189,138 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsPanel.classList.remove('hidden');
             syncBackgroundInputs(selectedBackgroundRange);
             setBackgroundSubtractedVisibility(true);
-            renderBackgroundAverages(payload.light_curves?.background_averages);
+            lastBackgroundAverages = payload.light_curves?.background_averages || null;
+            clearFlarePeakResult();
+            renderBackgroundAverages(lastBackgroundAverages);
             renderBackgroundSubtractedChart(payload.light_curves || { time: [], frequencies: [] });
             initializeDefaultFlareRange(payload.light_curves || { time: [], frequencies: [] });
+            updateFlarePeakButtonState();
         } catch (error) {
             showError(error.message || 'Unable to remove background noise.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function calculateFlarePeak() {
+        if (!selectedFile) {
+            showError('Select a file before calculating flare peak.');
+            return;
+        }
+
+        const selectedRange = getFullTimeRange(lastRangeLightCurves);
+        if (!selectedRange) {
+            showError('Cut a valid range before calculating flare peak.');
+            return;
+        }
+
+        if (!lastBackgroundAverages) {
+            showError('Remove background noise before calculating flare peak.');
+            return;
+        }
+
+        if (!selectedFlareRange || !Number.isFinite(selectedFlareRange.end)) {
+            showError('Fill a valid flare interval before calculating flare peak.');
+            return;
+        }
+
+        clearError();
+        setLoading(true);
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('start_time', Math.round(selectedRange.start));
+        formData.append('end_time', Math.round(selectedRange.end));
+        formData.append('flare_start', Math.round(selectedFlareRange.start));
+        formData.append('flare_end', Math.round(selectedFlareRange.end));
+        formData.append('background_averages', JSON.stringify(lastBackgroundAverages));
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/norp/flare-peak`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.detail || 'NorP flare peak calculation failed.');
+            }
+
+            renderFlarePeakResult(payload.flare_peaks || {});
+        } catch (error) {
+            showError(error.message || 'Unable to calculate flare peak.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function removeFrequencies() {
+        if (!selectedFile) {
+            showError('Select a file before removing frequencies.');
+            return;
+        }
+
+        const rows = Array.from(spectrumTableBody.querySelectorAll('tr'));
+        if (!rows.length) {
+            showError('Calculate flare peak before removing frequencies.');
+            return;
+        }
+
+        const frequencies = [];
+        const fluxes = [];
+        const frequenciesToRemove = [];
+
+        for (const row of rows) {
+            const frequency = row.dataset.frequency;
+            const flux = Number(row.dataset.flux);
+            const keepCheckbox = row.querySelector('.keep-frequency-checkbox');
+
+            if (!frequency || !Number.isFinite(flux)) {
+                continue;
+            }
+
+            frequencies.push(frequency);
+            fluxes.push(flux);
+
+            if (keepCheckbox instanceof HTMLInputElement && !keepCheckbox.checked) {
+                frequenciesToRemove.push(frequency);
+            }
+        }
+
+        if (!frequencies.length) {
+            showError('No valid spectrum rows to send.');
+            return;
+        }
+
+        clearError();
+        setLoading(true);
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('frequencies', JSON.stringify(frequencies));
+        formData.append('fluxes', JSON.stringify(fluxes));
+        formData.append('frequencies_to_remove', JSON.stringify(frequenciesToRemove));
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/norp/remove-frequencies`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.detail || 'NorP frequency removal failed.');
+            }
+
+            const imageBase64 = payload.spectrum?.spectrum_image_base64;
+            if (!imageBase64) {
+                throw new Error('NorP frequency removal returned no image.');
+            }
+
+            finalSpectrumImage.src = `data:image/png;base64,${imageBase64}`;
+            setFinalResultsVisibility(true);
+        } catch (error) {
+            showError(error.message || 'Unable to remove frequencies.');
         } finally {
             setLoading(false);
         }
@@ -994,6 +1362,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mouseup', clearTimeStepHold);
     document.addEventListener('touchend', clearTimeStepHold);
     removeBackgroundBtn.addEventListener('click', removeBackgroundNoise);
+    calculateFlarePeakBtn.addEventListener('click', calculateFlarePeak);
+    removeFrequenciesBtn.addEventListener('click', removeFrequencies);
+    spectrumGraphViewBtn.addEventListener('click', () => setSpectrumView('graph'));
+    spectrumImageViewBtn.addEventListener('click', () => setSpectrumView('image'));
 
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, event => {
@@ -1075,6 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fullChart?.resize();
         rangeChart?.resize();
         backgroundSubtractedChart?.resize();
+        flarePeakChart?.resize();
         syncSelectionHandles();
         syncFlareSelectionHandles();
     });

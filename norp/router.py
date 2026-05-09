@@ -9,9 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from . import norp
 from .RequestModel.AnalyzeRangeRequestModel import AnalyzeRangeRequestModel
 from .RequestModel.RemoveBGNoiseRequestModel import RemoveBGNoiseRequestModel
+from .RequestModel.FlareRequestModel import FlareRequestModel
+from .RequestModel.SpectrumRequestModel import SpectrumRequestModel
 
 router = APIRouter(prefix="/norp", tags=["norp"])
-
 
 def _to_json_safe(value):
     if isinstance(value, dict):
@@ -104,6 +105,62 @@ async def remove_background_endpoint(
     return {
         "status": "success",
         "light_curves": _to_json_safe(light_curves)
+    }
+
+@router.post("/flare-peak")
+async def flare_peak_endpoint(
+    request: Annotated[FlareRequestModel, Depends(FlareRequestModel.as_form)],
+    file: UploadFile = File(...),
+):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Arquivo não enviado.")
+
+    filename = None
+    try:
+        filename = await save_upload(file)
+        flare_peaks = norp.get_flare_peak(
+            filename,
+            request.flare_start,
+            request.flare_end,
+            request.background_averages,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if filename and os.path.exists(filename):
+            os.remove(filename)
+
+    return {
+        "status": "success",
+        "flare_peaks": _to_json_safe(flare_peaks),
+    }
+
+@router.post("/remove-frequencies")
+async def remove_frequencies_endpoint(
+    request: Annotated[SpectrumRequestModel, Depends(SpectrumRequestModel.as_form)],
+    file: UploadFile = File(...),
+):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Arquivo não enviado.")
+
+    filename = None
+    try:
+        filename = await save_upload(file)
+        spectrum = norp.remove_spectrum_frequencies(
+            filename,
+            request.frequencies,
+            request.fluxes,
+            request.frequencies_to_remove,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if filename and os.path.exists(filename):
+            os.remove(filename)
+
+    return {
+        "status": "success",
+        "spectrum": _to_json_safe(spectrum),
     }
 
 async def save_upload(upload: UploadFile) -> str:
