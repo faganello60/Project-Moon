@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const spectrumTableBody = document.getElementById('spectrumTableBody');
     const finalResultsPanel = document.getElementById('finalResultsPanel');
     const finalSpectrumImage = document.getElementById('finalSpectrumImage');
+    const downloadFinalImageBtn = document.getElementById('downloadFinalImageBtn');
+    const downloadFinalDatBtn = document.getElementById('downloadFinalDatBtn');
 
     const preFlareStartInput = document.getElementById('preFlareStartInput');
     const preFlareEndInput = document.getElementById('preFlareEndInput');
@@ -67,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRangeLightCurves = null;
     let lastBackgroundSubtractedLightCurves = null;
     let lastBackgroundAverages = null;
+    let lastFinalSpectrum = null;
     let currentVisibleRange = null;
     let selectedBackgroundRange = null;
     let selectedFlareRange = null;
@@ -111,6 +114,8 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBackgroundBtn.disabled = isLoading || !selectedFile || !selectedBackgroundRange || !Number.isFinite(selectedBackgroundRange.end);
         calculateFlarePeakBtn.disabled = isLoading || !selectedFile || !lastBackgroundAverages || !selectedFlareRange || !Number.isFinite(selectedFlareRange.end);
         removeFrequenciesBtn.disabled = isLoading || !selectedFile || !spectrumTableBody.querySelector('tr');
+        downloadFinalImageBtn.disabled = isLoading || !finalSpectrumImage.getAttribute('src');
+        downloadFinalDatBtn.disabled = isLoading || !buildFinalDatContent();
         fullResetZoomBtn.disabled = isLoading || !selectedFile || !lastFullLightCurves;
     }
 
@@ -162,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastRangeLightCurves = null;
         lastBackgroundSubtractedLightCurves = null;
         lastBackgroundAverages = null;
+        lastFinalSpectrum = null;
         currentVisibleRange = null;
         selectedBackgroundRange = null;
         selectedFlareRange = null;
@@ -190,6 +196,8 @@ document.addEventListener('DOMContentLoaded', () => {
         removeBackgroundBtn.disabled = true;
         calculateFlarePeakBtn.disabled = true;
         removeFrequenciesBtn.disabled = true;
+        downloadFinalImageBtn.disabled = true;
+        downloadFinalDatBtn.disabled = true;
         cutRangeBtn.disabled = true;
         syncFlareSelectionHandles();
     }
@@ -620,6 +628,89 @@ document.addEventListener('DOMContentLoaded', () => {
         return value.toExponential(2);
     }
 
+    function formatDatNumber(value) {
+        if (!Number.isFinite(value)) {
+            return '';
+        }
+
+        return value.toExponential(5).replace('e', 'E').replace(/E([+-])(\d)$/, 'E$10$2');
+    }
+
+    function buildFinalDatContent() {
+        if (!lastFinalSpectrum) {
+            return '';
+        }
+
+        return lastFinalSpectrum.frequencies
+            .map((frequency, index) => {
+                const flux = lastFinalSpectrum.fluxes[index];
+                if (!Number.isFinite(frequency) || !Number.isFinite(flux)) {
+                    return '';
+                }
+
+                return `${formatDatNumber(frequency)} ${formatDatNumber(flux)}`;
+            })
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    function getBaseDownloadName() {
+        const obsDay = obsDayValue.textContent?.trim();
+        if (obsDay && obsDay !== '-') {
+            return `${obsDay} Spectrum`
+                .replace(/[^a-z0-9 _-]+/gi, '')
+                .trim() || 'NoRP Spectrum';
+        }
+
+        const sourceName = selectedFile?.name || 'norp-spectrum';
+        const fallbackName = sourceName
+            .replace(/(\.fits\.gz|\.fits|\.fit|\.gz)$/i, '')
+            .replace(/[^a-z0-9_-]+/gi, '-')
+            .replace(/^-+|-+$/g, '');
+
+        return fallbackName ? `${fallbackName} Spectrum` : 'NoRP Spectrum';
+    }
+
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function downloadDataUrl(dataUrl, filename) {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    function downloadFinalImage() {
+        const imageSrc = finalSpectrumImage.getAttribute('src');
+        if (!imageSrc) {
+            showError('No final image available to download.');
+            return;
+        }
+
+        downloadDataUrl(imageSrc, `${getBaseDownloadName()}.png`);
+    }
+
+    function downloadFinalDat() {
+        const content = buildFinalDatContent();
+        if (!content) {
+            showError('No final spectrum data available to download.');
+            return;
+        }
+
+        downloadBlob(new Blob([`${content}\n`], { type: 'text/plain;charset=utf-8' }), `${getBaseDownloadName()}.dat`);
+    }
+
     function renderFlarePeakResult(result) {
         const flarePeaks = result?.flare_peaks || {};
 
@@ -646,19 +737,25 @@ document.addEventListener('DOMContentLoaded', () => {
         flarePeakChart.setOption(buildFlarePeakChartOption(flarePeaks));
         setSpectrumView('graph');
         setFinalResultsVisibility(false);
+        lastFinalSpectrum = null;
         finalSpectrumImage.removeAttribute('src');
+        downloadFinalImageBtn.disabled = true;
+        downloadFinalDatBtn.disabled = true;
     }
 
     function clearFlarePeakResult() {
         destroyFlarePeakChart();
         setSpectrumVisibility(false);
         setFinalResultsVisibility(false);
+        lastFinalSpectrum = null;
         spectrumTableBody.innerHTML = '';
         flarePeakImage.removeAttribute('src');
         finalSpectrumImage.removeAttribute('src');
         flarePeakStartValue.textContent = '-';
         flarePeakEndValue.textContent = '-';
         removeFrequenciesBtn.disabled = true;
+        downloadFinalImageBtn.disabled = true;
+        downloadFinalDatBtn.disabled = true;
     }
 
     function renderBackgroundAverages(backgroundAverages) {
@@ -1317,8 +1414,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('NorP frequency removal returned no image.');
             }
 
+            const finalFrequencies = payload.spectrum?.frequencies || [];
+            const finalFluxes = payload.spectrum?.fluxes || [];
+            lastFinalSpectrum = {
+                frequencies: finalFrequencies.map(Number),
+                fluxes: finalFluxes.map(Number),
+            };
+
             finalSpectrumImage.src = `data:image/png;base64,${imageBase64}`;
             setFinalResultsVisibility(true);
+            downloadFinalImageBtn.disabled = false;
+            downloadFinalDatBtn.disabled = !buildFinalDatContent();
         } catch (error) {
             showError(error.message || 'Unable to remove frequencies.');
         } finally {
@@ -1364,6 +1470,8 @@ document.addEventListener('DOMContentLoaded', () => {
     removeBackgroundBtn.addEventListener('click', removeBackgroundNoise);
     calculateFlarePeakBtn.addEventListener('click', calculateFlarePeak);
     removeFrequenciesBtn.addEventListener('click', removeFrequencies);
+    downloadFinalImageBtn.addEventListener('click', downloadFinalImage);
+    downloadFinalDatBtn.addEventListener('click', downloadFinalDat);
     spectrumGraphViewBtn.addEventListener('click', () => setSpectrumView('graph'));
     spectrumImageViewBtn.addEventListener('click', () => setSpectrumView('image'));
 
