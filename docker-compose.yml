@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   backend:
-    image: faganello60/project-moon-backend:1.1
+    image: faganello60/project-moon-backend:local
     build: .
     expose:
       - "8000"
     restart: unless-stopped
 
   frontend:
-    image: faganello60/project-moon-frontend:1.1
+    image: faganello60/project-moon-frontend:local
     build: ./web
     environment:
       API_BASE_URL: /api
