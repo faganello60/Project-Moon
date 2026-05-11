@@ -1,0 +1,28 @@
+meta {
+  name: remove-bg-noise
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://0.0.0.0:8000/norp/remove-background-noise
+  body: multipartForm
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+body:multipart-form {
+  file: @file(/Users/faganello/Documents/Project Moon/examples/norp020531.fits.gz)
+  start_time: 1022802743000
+  end_time: 1022805461000
+  pre_flare_start: 1022803086136
+  pre_flare_end: 1022803292000
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

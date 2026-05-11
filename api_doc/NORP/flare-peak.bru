@@ -1,0 +1,27 @@
+meta {
+  name: flare-peak
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://0.0.0.0:8000/norp/flare-peak
+  body: multipartForm
+  auth: inherit
+}
+
+body:json {
+  {}
+}
+
+body:multipart-form {
+  file: @file(/Users/faganello/Documents/Project Moon/examples/norp020531.fits.gz)
+  flare_start: 1022803686000
+  flare_end: 1022803702000
+  background_averages: 1022803086136
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

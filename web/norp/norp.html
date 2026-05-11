@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Moon | NoRP Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="stars"></div>
+    <div class="twinkling"></div>
+
+    <div class="container">
+        <header>
+            <h1>PROJECT MOON - NoRP</h1>
+            <p class="subtitle">Nobeyama Radio Polarimeter file analysis</p>
+        </header>
+
+        <main>
+            <section class="control-panel">
+                <div class="panel-header">
+                    <h2>Upload Data</h2>
+                </div>
+                <p class="panel-link-row">
+                    Download NoRP FITS files:
+                    <a href="https://solar.nro.nao.ac.jp/norp/fits/" target="_blank" rel="noopener noreferrer">solar.nro.nao.ac.jp/norp/fits/</a>
+                </p>
+
+                <div class="upload-layout">
+                    <button type="button" id="selectFileBtn" class="json-btn upload-button">Select FITS File</button>
+                    <input type="file" id="fitsFile" class="hidden" accept=".fits,.fit,.gz,.fits.gz">
+
+                    <div id="dropZone" class="drop-zone" tabindex="0" aria-label="Drop NorP FITS file here">
+                        <p class="drop-zone-title">Drag and drop a file here</p>
+                        <p class="drop-zone-subtitle">Accepted formats: <code>.fits</code>, <code>.fit</code>, <code>.gz</code></p>
+                        <p id="selectedFileName" class="selected-file">No file selected</p>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="analyzeBtn">Analyze Observation</button>
+                </div>
+
+                <p id="errorMessage" class="status-message error hidden"></p>
+            </section>
+
+            <section class="results-panel hidden" id="resultsPanel">
+                <div class="panel-header">
+                    <h2>Analysis Result</h2>
+                </div>
+
+                <div class="results-grid">
+                    <div class="summary-card">
+                        <span class="summary-label">Data</span>
+                        <strong id="obsDayValue">-</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Start Time</span>
+                        <strong id="startTimeValue">-</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">End Time</span>
+                        <strong id="endTimeValue">-</strong>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Frequencies</span>
+                        <strong id="frequenciesValue">-</strong>
+                    </div>
+                </div>
+
+                <div id="fullChartCard" class="chart-card hidden">
+                    <div class="chart-card-header">
+                        <div>
+                            <h3>Light Curves</h3>
+                            <p id="fullChartHint">Use mouse wheel or pinch to zoom, drag to pan.</p>
+                        </div>
+                        <div class="chart-controls">
+                            <button type="button" id="fullResetZoomBtn" class="json-btn reset-zoom-btn">Reset Zoom</button>
+                        </div>
+                    </div>
+                    <div class="chart-layout">
+                        <div class="chart-stage">
+                            <div id="fullNorpChart" aria-label="NoRP light curves chart" role="img"></div>
+                        </div>
+                    </div>
+                    <div id="cutRangeBar" class="cut-range-bar hidden">
+                        <button type="button" id="cutRangeBtn" class="json-btn cut-range-btn">Cut Visible Range</button>
+                    </div>
+                </div>
+                <div id="rangeChartCard" class="chart-card hidden">
+                    <div class="chart-card-header">
+                        <div>
+                            <h3>Range Light Curves</h3>
+                            <p id="rangeChartHint">Zoom locked. Adjust the pre-flare interval below.</p>
+                        </div>
+                    </div>
+                    <div class="chart-layout">
+                        <div id="rangeChartStage" class="chart-stage">
+                            <div id="rangeNorpChart" aria-label="NoRP range light curves chart" role="img"></div>
+                            <div id="startPreFlareHandle" class="range-handle hidden" aria-hidden="true">
+                                <span>Pre-flare Start</span>
+                            </div>
+                            <div id="endPreFlareHandle" class="range-handle hidden" aria-hidden="true">
+                                <span>Pre-flare End</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="backgroundPanel" class="background-panel hidden">
+                        <p id="selectionHint">Enter the pre-flare interval shown on the chart.</p>
+                        <div class="background-fields">
+                            <label class="time-field" for="preFlareStartInput">
+                                <span>start-pre-flare</span>
+                                <div class="time-input-row">
+                                    <button type="button" class="time-step-btn" data-target="preFlareStartInput" data-direction="-1" aria-label="Decrease pre-flare start time">-</button>
+                                    <input type="datetime-local" id="preFlareStartInput" step="1">
+                                    <button type="button" class="time-step-btn" data-target="preFlareStartInput" data-direction="1" aria-label="Increase pre-flare start time">+</button>
+                                </div>
+                            </label>
+                            <label class="time-field" for="preFlareEndInput">
+                                <span>end-pre-flare</span>
+                                <div class="time-input-row">
+                                    <button type="button" class="time-step-btn" data-target="preFlareEndInput" data-direction="-1" aria-label="Decrease pre-flare end time">-</button>
+                                    <input type="datetime-local" id="preFlareEndInput" step="1">
+                                    <button type="button" class="time-step-btn" data-target="preFlareEndInput" data-direction="1" aria-label="Increase pre-flare end time">+</button>
+                                </div>
+                            </label>
+                        </div>
+                        <button type="button" id="removeBackgroundBtn" class="json-btn remove-background-btn">Remove Noise Background</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="backgroundSubtractedPanel" class="control-panel background-subtracted-panel hidden">
+                <div class="panel-header background-subtracted-header">
+                    <div>
+                        <h2>Light Cuvres with background subtracted</h2>
+                        <p id="backgroundSubtractedHint">Select the start and end points of the flare.</p>
+                    </div>
+                </div>
+                <p class="background-averages-label">Mean background noise value for each frequency</p>
+                <div id="backgroundAveragesSummary" class="background-averages-summary"></div>
+                <div id="backgroundSubtractedChartStage" class="chart-stage">
+                    <div id="backgroundSubtractedChart" aria-label="NoRP background subtracted light curves chart" role="img"></div>
+                    <div id="startFlareHandle" class="range-handle hidden" aria-hidden="true">
+                        <span>Start Flare</span>
+                    </div>
+                    <div id="endFlareHandle" class="range-handle hidden" aria-hidden="true">
+                        <span>End Flare</span>
+                    </div>
+                </div>
+                <div class="flare-fields">
+                    <label class="time-field" for="startFlareInput">
+                        <span>Start Flare</span>
+                        <div class="time-input-row">
+                            <button type="button" class="time-step-btn" data-target="startFlareInput" data-direction="-1" aria-label="Decrease flare start time">-</button>
+                            <input type="datetime-local" id="startFlareInput" step="1">
+                            <button type="button" class="time-step-btn" data-target="startFlareInput" data-direction="1" aria-label="Increase flare start time">+</button>
+                        </div>
+                    </label>
+                    <label class="time-field" for="endFlareInput">
+                        <span>End Flare</span>
+                        <div class="time-input-row">
+                            <button type="button" class="time-step-btn" data-target="endFlareInput" data-direction="-1" aria-label="Decrease flare end time">-</button>
+                            <input type="datetime-local" id="endFlareInput" step="1">
+                            <button type="button" class="time-step-btn" data-target="endFlareInput" data-direction="1" aria-label="Increase flare end time">+</button>
+                        </div>
+                    </label>
+                </div>
+                <button type="button" id="calculateFlarePeakBtn" class="json-btn flare-peak-btn">Calculate Flare Peak</button>
+            </section>
+
+            <section id="spectrumPanel" class="control-panel spectrum-panel hidden">
+                <div class="panel-header">
+                    <h2>Spectrum: Flux Density (SFU) X Frequency (Hz)</h2>
+                </div>
+                <div id="flarePeakResult" class="flare-peak-result">
+                    <div class="flare-peak-summary">
+                        <div class="background-average-card">
+                            <span>Flare Start</span>
+                            <strong id="flarePeakStartValue">-</strong>
+                        </div>
+                        <div class="background-average-card">
+                            <span>Flare End</span>
+                            <strong id="flarePeakEndValue">-</strong>
+                        </div>
+                    </div>
+                    <div class="spectrum-view-switcher" role="group" aria-label="Spectrum view">
+                        <button type="button" id="spectrumGraphViewBtn" class="spectrum-view-btn is-active">Graph</button>
+                        <button type="button" id="spectrumImageViewBtn" class="spectrum-view-btn">Image</button>
+                    </div>
+                    <div id="flarePeakChart" class="spectrum-view" aria-label="NoRP flare peak by frequency chart" role="img"></div>
+                    <img id="flarePeakImage" class="spectrum-view spectrum-image hidden" alt="NoRP flare peak spectrum image">
+                    <div class="spectrum-table-wrap">
+                        <table class="spectrum-table">
+                            <thead>
+                                <tr>
+                                    <th>Frequency</th>
+                                    <th>Flux</th>
+                                    <th>Keep Frequency</th>
+                                </tr>
+                            </thead>
+                            <tbody id="spectrumTableBody"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" id="removeFrequenciesBtn" class="json-btn remove-frequencies-btn">Remove Frequencies</button>
+                </div>
+            </section>
+
+            <section id="finalResultsPanel" class="control-panel final-results-panel hidden">
+                <div class="panel-header">
+                    <h2>Final Results</h2>
+                </div>
+                <img id="finalSpectrumImage" class="spectrum-image" alt="Final NoRP spectrum image">
+            </section>
+        </main>
+    </div>
+
+    <div id="loader" class="loader hidden">
+        <div class="moon"></div>
+        <p>loading</p>
+    </div>
+
+    <div class="footer">
+        <p>Created by <a href="https://faganello.dev.br" target="_blank" rel="noopener noreferrer">Bruno Faganello</a></p>
+    </div>
+
+    <script src="../config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

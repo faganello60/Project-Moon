@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from gsync.router import router as gsync_router
 from parameters_study.router import router as sensitivity_router
+from norp.router import router as norp_router
 
 app = FastAPI()
 
@@ -15,6 +17,7 @@ app.add_middleware(
 
 app.include_router(gsync_router)
 app.include_router(sensitivity_router)
+app.include_router(norp_router)
 
 if __name__ == "__main__":
     import uvicorn
