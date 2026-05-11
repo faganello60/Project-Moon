@@ -73,35 +73,6 @@ def get_spectrum_graph_base64(flux, frequency, title='NoRP Spectrum'):
 
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-def remove_spectrum_frequencies(filename, frequencies, fluxes, frequencies_to_remove):
-    if len(frequencies) != len(fluxes):
-        raise ValueError('frequencies and fluxes must have the same length.')
-
-    remove_set = set(frequencies_to_remove)
-
-    filtered_frequencies = []
-    filtered_fluxes = []
-
-    for frequency, flux in zip(frequencies, fluxes):
-        if frequency not in FREQUENCY_HZ_BY_NAME:
-            raise ValueError(f'Unknown frequency: {frequency}')
-
-        if frequency in remove_set:
-            continue
-
-        filtered_frequencies.append(FREQUENCY_HZ_BY_NAME[frequency])
-        filtered_fluxes.append(float(flux))
-
-    return {
-        'frequencies': filtered_frequencies,
-        'fluxes': filtered_fluxes,
-        'spectrum_image_base64': get_spectrum_graph_base64(
-            filtered_fluxes,
-            filtered_frequencies,
-            f'NoRP Spectrum {utils.norp_rd_obsDay(filename)}',
-        ),
-    }
-
 def get_full_light_curves(filename, frequency=None):
     if frequency is not None and frequency not in FREQUENCY_COLUMNS:
         raise ValueError(f'Unknown frequency: {frequency}')
@@ -317,6 +288,35 @@ def get_flare_peak(filename, flare_start, flare_end, background_averages):
         'spectrum_image_base64': get_spectrum_graph_base64(
             spectrum_flux,
             spectrum_frequency,
+            f'NoRP Spectrum {utils.norp_rd_obsDay(filename)}',
+        ),
+    }
+
+def remove_spectrum_frequencies(filename, frequencies, fluxes, frequencies_to_remove):
+    if len(frequencies) != len(fluxes):
+        raise ValueError('frequencies and fluxes must have the same length.')
+
+    remove_set = set(frequencies_to_remove)
+
+    filtered_frequencies = []
+    filtered_fluxes = []
+
+    for frequency, flux in zip(frequencies, fluxes):
+        if frequency not in FREQUENCY_HZ_BY_NAME:
+            raise ValueError(f'Unknown frequency: {frequency}')
+
+        if frequency in remove_set:
+            continue
+
+        filtered_frequencies.append(FREQUENCY_HZ_BY_NAME[frequency])
+        filtered_fluxes.append(float(flux))
+
+    return {
+        'frequencies': filtered_frequencies,
+        'fluxes': filtered_fluxes,
+        'spectrum_image_base64': get_spectrum_graph_base64(
+            filtered_fluxes,
+            filtered_frequencies,
             f'NoRP Spectrum {utils.norp_rd_obsDay(filename)}',
         ),
     }
